@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Local tools & executables
+tools/
+cloudflared.exe
+
+# Environment & local state
+.env
+.env.local
+*.log
+
+# Database SQLite local files
+server/data/*.sqlite
+server/data/*.sqlite-journal
+server/data/*.sqlite-wal
+server/data/*.sqlite-shm
+
+# Test artifacts
+server/test/*.png
+test/
+
+# OS files
+.DS_Store
+Thumbs.db
