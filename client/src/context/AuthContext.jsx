@@ -44,12 +44,20 @@ export function AuthProvider({ children }) {
   };
 
   const register = async (name, email, password) => {
-    const res = await apiClient.register(name, email, password);
+    return await apiClient.register(name, email, password);
+  };
+
+  const verifyCode = async (email, code) => {
+    const res = await apiClient.verifyCode(email, code);
     apiClient.setToken(res.token);
     apiClient.setUser(res.user);
     setToken(res.token);
     setUser(res.user);
     return res.user;
+  };
+
+  const resendCode = async (email) => {
+    return await apiClient.resendCode(email);
   };
 
   const logout = () => {
@@ -68,6 +76,8 @@ export function AuthProvider({ children }) {
         loading,
         login,
         register,
+        verifyCode,
+        resendCode,
         logout
       }}
     >

@@ -77,6 +77,14 @@ export const apiClient = {
     return this.request('/auth/register', { method: 'POST', body: { name, email, password } });
   },
 
+  verifyCode(email, code) {
+    return this.request('/auth/verify-code', { method: 'POST', body: { email, code } });
+  },
+
+  resendCode(email) {
+    return this.request('/auth/resend-code', { method: 'POST', body: { email } });
+  },
+
   getProfile() {
     return this.request('/auth/me');
   },

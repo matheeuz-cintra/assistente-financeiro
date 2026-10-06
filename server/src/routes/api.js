@@ -26,6 +26,26 @@ router.post('/auth/register', async (req, res) => {
   }
 });
 
+router.post('/auth/verify-code', async (req, res) => {
+  try {
+    const { email, code } = req.body;
+    const result = await AuthService.verifyCode(email, code);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/auth/resend-code', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const result = await AuthService.resendCode(email);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 router.post('/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;

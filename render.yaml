@@ -12,3 +12,5 @@ services:
         generateValue: true
       - key: DATABASE_URL
         value: postgresql://postgres.mtbnwljjznjvmlnmtzbl:Mt%2422012004%40Rv@aws-0-us-east-2.pooler.supabase.com:5432/postgres
+      - key: RESEND_API_KEY
+        sync: false
