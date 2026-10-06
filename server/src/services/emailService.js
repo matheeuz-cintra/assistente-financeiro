@@ -1,3 +1,5 @@
+import nodemailer from 'nodemailer';
+
 export class EmailService {
   /**
    * Generates a secure 6-digit numeric verification code
@@ -7,17 +9,13 @@ export class EmailService {
   }
 
   /**
-   * Sends a 6-digit verification code to the target email using Resend
+   * Sends a 6-digit verification code to the target email using Gmail (Nodemailer) or Resend
    */
   static async sendVerificationCode(toEmail, code, userName = '') {
+    const gmailUser = process.env.GMAIL_USER;
+    const gmailPass = process.env.GMAIL_APP_PASSWORD;
     const resendApiKey = process.env.RESEND_API_KEY;
-    const fromAddress = process.env.EMAIL_FROM || 'Assistente Financeiro <onboarding@resend.dev>';
     const firstName = userName ? userName.split(' ')[0] : 'usuário';
-
-    if (!resendApiKey) {
-      console.error('❌ RESEND_API_KEY não encontrada no ambiente do servidor!');
-      throw new Error('Serviço de envio de e-mails não configurado. Adicione a chave RESEND_API_KEY no painel do Render.');
-    }
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -29,7 +27,6 @@ export class EmailService {
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
     .card { max-width: 480px; margin: 0 auto; background: #1e293b; border-radius: 24px; padding: 36px 28px; border: 1px solid #334155; text-align: center; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
-    .logo { width: 56px; height: 56px; border-radius: 16px; margin: 0 auto 16px auto; display: block; }
     .brand { font-size: 20px; font-weight: 800; color: #ffffff; margin-bottom: 24px; letter-spacing: -0.5px; }
     .title { font-size: 18px; font-weight: 700; color: #38bdf8; margin-bottom: 12px; }
     .text { font-size: 14px; line-height: 1.6; color: #94a3b8; margin-bottom: 24px; }
@@ -64,36 +61,77 @@ export class EmailService {
 </html>
     `;
 
-    try {
-      console.log(`✉️ Enviando e-mail real via Resend para: ${toEmail}...`);
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${resendApiKey.trim()}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          from: fromAddress,
-          to: [toEmail],
+    // -------------------------------------------------------------
+    // 1. MÉTODO GMAIL (Sem restrições de destinatário ou domínio)
+    // -------------------------------------------------------------
+    if (gmailUser && gmailPass) {
+      try {
+        console.log(`✉️ Enviando e-mail via Gmail (${gmailUser}) para: ${toEmail}...`);
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: gmailUser.trim(),
+            pass: gmailPass.trim().replace(/\s+/g, '') // remove spaces from 16-char app password
+          }
+        });
+
+        const info = await transporter.sendMail({
+          from: `"Assistente Financeiro" <${gmailUser.trim()}>`,
+          to: toEmail,
           subject: `${code} é o seu código do Assistente Financeiro`,
           html: htmlContent
-        })
-      });
+        });
 
-      const data = await response.json();
-      if (!response.ok) {
-        console.error('⚠️ Erro na resposta da API do Resend:', data);
-        if (data.message && data.message.includes('only send testing emails to your own email address')) {
-          throw new Error('No plano de teste gratuito do Resend (sem domínio próprio), os e-mails só podem ser enviados para o mesmo e-mail que você usou para criar a conta no Resend. Para enviar para qualquer e-mail, adicione um domínio em resend.com/domains.');
-        }
-        throw new Error(data.message || 'Erro ao enviar e-mail pelo Resend');
+        console.log(`✅ E-mail enviado com sucesso via Gmail para ${toEmail}! (ID: ${info.messageId})`);
+        return { success: true, id: info.messageId };
+      } catch (err) {
+        console.error('⚠️ Falha ao disparar e-mail via Gmail:', err);
+        throw new Error(`Falha no envio via Gmail: ${err.message}`);
       }
-
-      console.log(`✅ E-mail enviado com sucesso via Resend para ${toEmail}! (ID: ${data.id})`);
-      return { success: true, id: data.id };
-    } catch (err) {
-      console.error('⚠️ Falha no envio do e-mail:', err);
-      throw err;
     }
+
+    // -------------------------------------------------------------
+    // 2. MÉTODO RESEND
+    // -------------------------------------------------------------
+    if (resendApiKey) {
+      const fromAddress = process.env.EMAIL_FROM || 'Assistente Financeiro <onboarding@resend.dev>';
+      try {
+        console.log(`✉️ Enviando e-mail via Resend para: ${toEmail}...`);
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey.trim()}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: fromAddress,
+            to: [toEmail],
+            subject: `${code} é o seu código do Assistente Financeiro`,
+            html: htmlContent
+          })
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          console.error('⚠️ Erro na resposta da API do Resend:', data);
+          if (data.message && data.message.includes('only send testing emails to your own email address')) {
+            throw new Error('No plano de teste gratuito do Resend (sem domínio próprio), os e-mails só podem ser enviados para o mesmo e-mail que você usou para criar a conta no Resend. Para enviar para qualquer e-mail de qualquer pessoa, use a opção do Gmail no Render (GMAIL_USER e GMAIL_APP_PASSWORD) ou cadastre um domínio em resend.com/domains.');
+          }
+          throw new Error(data.message || 'Erro ao enviar e-mail pelo Resend');
+        }
+
+        console.log(`✅ E-mail enviado com sucesso via Resend para ${toEmail}! (ID: ${data.id})`);
+        return { success: true, id: data.id };
+      } catch (err) {
+        console.error('⚠️ Falha no envio do e-mail:', err);
+        throw err;
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 3. NENHUM SERVIÇO CONFIGURADO
+    // -------------------------------------------------------------
+    console.error('❌ Nenhum provedor de e-mail (GMAIL ou RESEND) configurado!');
+    throw new Error('Serviço de envio de e-mails não configurado. Adicione GMAIL_USER e GMAIL_APP_PASSWORD (ou RESEND_API_KEY) no Render.');
   }
 }
