@@ -68,6 +68,7 @@ router.post('/assistant/chat', async (req, res) => {
     const result = await AssistantService.processMessage(req.user.id, message);
     res.json(result);
   } catch (err) {
+    console.error('Error in /assistant/chat:', err);
     res.status(500).json({ error: err.message });
   }
 });

@@ -387,7 +387,7 @@ export class AssistantService {
     const assistantMsgId = crypto.randomUUID();
     await execute(
       'INSERT INTO chat_messages (id, user_id, role, content, metadata) VALUES (?, ?, ?, ?, ?)',
-      [assistantMsgId, userId, assistantResponse, JSON.stringify(responseMetadata)]
+      [assistantMsgId, userId, 'assistant', assistantResponse, JSON.stringify(responseMetadata)]
     );
 
     return {
