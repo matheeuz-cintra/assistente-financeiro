@@ -16,7 +16,6 @@ export function LoginView() {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [resendCooldown, setResendCooldown] = useState(30);
   const [canResend, setCanResend] = useState(false);
-  const [codePreview, setCodePreview] = useState(null);
   const [infoMessage, setInfoMessage] = useState('');
 
   // Status & Errors
@@ -54,7 +53,6 @@ export function LoginView() {
           setStep('verify');
           setResendCooldown(30);
           setCanResend(false);
-          setCodePreview(res.codePreview || null);
           setOtp(['', '', '', '', '', '']);
           setTimeout(() => {
             otpInputsRef.current[0]?.focus();
@@ -101,9 +99,6 @@ export function LoginView() {
       setCanResend(false);
       setResendCooldown(30);
       setInfoMessage('Novo código enviado com sucesso!');
-      if (res.codePreview) {
-        setCodePreview(res.codePreview);
-      }
     } catch (err) {
       setError(err.message || 'Erro ao reenviar código');
     } finally {
@@ -331,23 +326,7 @@ export function LoginView() {
               </div>
             )}
 
-            {/* Simulated Code Helper (Visible before user configures RESEND_API_KEY) */}
-            {codePreview && (
-              <div className="p-2.5 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-200 text-[11px] text-center space-y-1.5">
-                <div>🔑 <strong>Código de Teste:</strong> <span className="font-mono font-bold tracking-widest text-white bg-slate-900 px-2 py-0.5 rounded">{codePreview}</span></div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const digits = codePreview.split('');
-                    setOtp(digits);
-                    handleVerifyOtp(codePreview);
-                  }}
-                  className="text-[10px] text-emerald-400 underline font-semibold block mx-auto"
-                >
-                  Preencher e Confirmar Automaticamente
-                </button>
-              </div>
-            )}
+
 
             {/* 6 Digit Inputs */}
             <div className="flex justify-between gap-1.5 pt-1" onPaste={handleOtpPaste}>

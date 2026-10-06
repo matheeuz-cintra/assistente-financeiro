@@ -1,5 +1,3 @@
-import { config } from '../config/index.js';
-
 export class EmailService {
   /**
    * Generates a secure 6-digit numeric verification code
@@ -15,6 +13,11 @@ export class EmailService {
     const resendApiKey = process.env.RESEND_API_KEY;
     const fromAddress = process.env.EMAIL_FROM || 'Assistente Financeiro <onboarding@resend.dev>';
     const firstName = userName ? userName.split(' ')[0] : 'usuário';
+
+    if (!resendApiKey) {
+      console.error('❌ RESEND_API_KEY não encontrada no ambiente do servidor!');
+      throw new Error('Serviço de envio de e-mails não configurado. Adicione a chave RESEND_API_KEY no painel do Render.');
+    }
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -61,47 +64,36 @@ export class EmailService {
 </html>
     `;
 
-    // 1. If Resend API Key is set, send real email via Resend REST API
-    if (resendApiKey) {
-      try {
-        console.log(`✉️ Enviando e-mail via Resend para: ${toEmail}...`);
-        const response = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${resendApiKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            from: fromAddress,
-            to: [toEmail],
-            subject: `${code} é o seu código do Assistente Financeiro`,
-            html: htmlContent
-          })
-        });
+    try {
+      console.log(`✉️ Enviando e-mail real via Resend para: ${toEmail}...`);
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${resendApiKey.trim()}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: fromAddress,
+          to: [toEmail],
+          subject: `${code} é o seu código do Assistente Financeiro`,
+          html: htmlContent
+        })
+      });
 
-        const data = await response.json();
-        if (!response.ok) {
-          console.error('⚠️ Erro na API do Resend:', data);
-          // If Resend failed (e.g. unverified domain or sandbox limitation), log code so user is not blocked
-          console.log(`🔑 [CÓDIGO DE RECUPERAÇÃO] Código para ${toEmail}: ${code}`);
-          return { success: false, error: data.message || 'Erro ao enviar e-mail pelo Resend', codePreview: code };
+      const data = await response.json();
+      if (!response.ok) {
+        console.error('⚠️ Erro na resposta da API do Resend:', data);
+        if (data.message && data.message.includes('only send testing emails to your own email address')) {
+          throw new Error('No plano de teste gratuito do Resend (sem domínio próprio), os e-mails só podem ser enviados para o mesmo e-mail que você usou para criar a conta no Resend. Para enviar para qualquer e-mail, adicione um domínio em resend.com/domains.');
         }
-
-        console.log(`✅ E-mail enviado com sucesso via Resend (ID: ${data.id})`);
-        return { success: true, id: data.id };
-      } catch (err) {
-        console.error('⚠️ Falha de conexão com Resend:', err);
-        console.log(`🔑 [CÓDIGO DE RECUPERAÇÃO] Código para ${toEmail}: ${code}`);
-        return { success: false, error: err.message, codePreview: code };
+        throw new Error(data.message || 'Erro ao enviar e-mail pelo Resend');
       }
-    } else {
-      // 2. Simulated mode (when user hasn't added RESEND_API_KEY in Render yet)
-      console.log('----------------------------------------------------');
-      console.log(`✉️ [SIMULAÇÃO DE E-MAIL - RESEND_API_KEY NÃO CONFIGURADA]`);
-      console.log(`Para: ${toEmail}`);
-      console.log(`Código de Verificação: ${code}`);
-      console.log('----------------------------------------------------');
-      return { success: true, simulated: true, codePreview: code };
+
+      console.log(`✅ E-mail enviado com sucesso via Resend para ${toEmail}! (ID: ${data.id})`);
+      return { success: true, id: data.id };
+    } catch (err) {
+      console.error('⚠️ Falha no envio do e-mail:', err);
+      throw err;
     }
   }
 }

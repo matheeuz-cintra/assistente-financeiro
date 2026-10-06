@@ -91,13 +91,12 @@ export class AuthService {
       [cleanEmail, name.trim(), passwordHash, code, expiresAt]
     );
 
-    const emailResult = await EmailService.sendVerificationCode(cleanEmail, code, name.trim());
+    await EmailService.sendVerificationCode(cleanEmail, code, name.trim());
 
     return {
       status: 'verification_required',
       email: cleanEmail,
-      message: 'Código de verificação enviado para o seu e-mail.',
-      codePreview: emailResult.codePreview || null
+      message: 'Código de verificação enviado para o seu e-mail.'
     };
   }
 
@@ -183,12 +182,11 @@ export class AuthService {
       [newCode, expiresAt, cleanEmail]
     );
 
-    const emailResult = await EmailService.sendVerificationCode(cleanEmail, newCode, pending.name);
+    await EmailService.sendVerificationCode(cleanEmail, newCode, pending.name);
 
     return {
       success: true,
-      message: 'Novo código de verificação enviado!',
-      codePreview: emailResult.codePreview || null
+      message: 'Novo código de verificação enviado para o seu e-mail!'
     };
   }
 
