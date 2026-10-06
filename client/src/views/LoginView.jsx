@@ -18,9 +18,9 @@ export function LoginView() {
 
     try {
       if (isRegister) {
-        await register(name, email, password);
+        await register(name.trim(), email.trim(), password);
       } else {
-        await login(email, password);
+        await login(email.trim(), password);
       }
     } catch (err) {
       setError(err.message || 'Erro ao realizar login');
@@ -119,6 +119,9 @@ export function LoginView() {
                 placeholder="seu.email@exemplo.com"
                 className="w-full pl-9 pr-3.5 py-2.5 rounded-2xl bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 required
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
               />
             </div>
           </div>
@@ -134,6 +137,8 @@ export function LoginView() {
                 placeholder="••••••••"
                 className="w-full pl-9 pr-3.5 py-2.5 rounded-2xl bg-slate-900 border border-slate-700 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 required
+                autoCapitalize="none"
+                autoCorrect="off"
               />
             </div>
           </div>
