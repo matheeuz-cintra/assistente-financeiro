@@ -4,16 +4,21 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
 import { config } from './config/index.js';
-import { initDatabase } from './db/database.js';
+import { initDatabase, isPostgres } from './db/database.js';
 import { seedDemoDataIfEmpty } from './db/seed.js';
 import { router as apiRouter } from './routes/api.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 1. Initialize SQLite Database & Seed Data
-initDatabase();
-seedDemoDataIfEmpty();
+// 1. Initialize Database (Supabase PostgreSQL in Cloud or Local SQLite) & Seed Data
+try {
+  await initDatabase();
+  await seedDemoDataIfEmpty();
+  console.log(`✅ Banco de Dados (${isPostgres ? 'PostgreSQL / Supabase' : 'SQLite'}) inicializado com sucesso!`);
+} catch (err) {
+  console.error('Erro ao inicializar banco de dados:', err);
+}
 
 // 2. Setup Express App
 const app = express();
@@ -25,7 +30,8 @@ app.use(express.json());
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
-    app: 'FinAI Mobile Financial Assistant',
+    app: 'Assistente Financeiro',
+    database: isPostgres ? 'supabase-postgresql' : 'sqlite',
     version: '1.0.0',
     timestamp: new Date().toISOString()
   });
@@ -52,7 +58,7 @@ app.use((err, req, res, next) => {
 
 app.listen(config.port, () => {
   console.log(`====================================================`);
-  console.log(`🚀 Servidor FinAI rodando em http://localhost:${config.port}`);
-  console.log(`📊 API disponível em http://localhost:${config.port}/api`);
+  console.log(`🚀 Assistente Financeiro rodando em http://localhost:${config.port}`);
+  console.log(`📊 Banco de Dados conectado: ${isPostgres ? 'Nuvem (Supabase)' : 'Local (SQLite)'}`);
   console.log(`====================================================`);
 });

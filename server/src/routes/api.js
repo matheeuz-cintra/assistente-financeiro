@@ -16,29 +16,29 @@ export const router = express.Router();
 // -------------------------------------------------------------
 // AUTH ROUTES
 // -------------------------------------------------------------
-router.post('/auth/register', (req, res) => {
+router.post('/auth/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
-    const result = AuthService.register(name, email, password);
+    const result = await AuthService.register(name, email, password);
     res.json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-router.post('/auth/login', (req, res) => {
+router.post('/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const result = AuthService.login(email, password);
+    const result = await AuthService.login(email, password);
     res.json(result);
   } catch (err) {
     res.status(401).json({ error: err.message });
   }
 });
 
-router.get('/auth/me', authMiddleware, (req, res) => {
+router.get('/auth/me', authMiddleware, async (req, res) => {
   try {
-    const profile = AuthService.getProfile(req.user.id);
+    const profile = await AuthService.getProfile(req.user.id);
     res.json(profile);
   } catch (err) {
     res.status(404).json({ error: err.message });
@@ -51,10 +51,10 @@ router.use(authMiddleware);
 // -------------------------------------------------------------
 // ASSISTANT (CHAT & NATURAL LANGUAGE & VOICE)
 // -------------------------------------------------------------
-router.get('/assistant/history', (req, res) => {
+router.get('/assistant/history', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit, 10) || 50;
-    const history = AssistantService.getChatHistory(req.user.id, limit);
+    const history = await AssistantService.getChatHistory(req.user.id, limit);
     res.json(history);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -75,7 +75,7 @@ router.post('/assistant/chat', async (req, res) => {
 // -------------------------------------------------------------
 // TRANSACTIONS
 // -------------------------------------------------------------
-router.get('/transactions', (req, res) => {
+router.get('/transactions', async (req, res) => {
   try {
     const filters = {
       type: req.query.type,
@@ -90,16 +90,16 @@ router.get('/transactions', (req, res) => {
       search: req.query.search,
       limit: req.query.limit
     };
-    const list = TransactionService.list(req.user.id, filters);
+    const list = await TransactionService.list(req.user.id, filters);
     res.json(list);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.get('/transactions/:id', (req, res) => {
+router.get('/transactions/:id', async (req, res) => {
   try {
-    const tx = TransactionService.getById(req.user.id, req.params.id);
+    const tx = await TransactionService.getById(req.user.id, req.params.id);
     if (!tx) return res.status(404).json({ error: 'Transação não encontrada' });
     res.json(tx);
   } catch (err) {
@@ -107,36 +107,36 @@ router.get('/transactions/:id', (req, res) => {
   }
 });
 
-router.post('/transactions', (req, res) => {
+router.post('/transactions', async (req, res) => {
   try {
-    const tx = TransactionService.create(req.user.id, req.body);
+    const tx = await TransactionService.create(req.user.id, req.body);
     res.status(201).json(tx);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-router.put('/transactions/:id', (req, res) => {
+router.put('/transactions/:id', async (req, res) => {
   try {
-    const tx = TransactionService.update(req.user.id, req.params.id, req.body);
+    const tx = await TransactionService.update(req.user.id, req.params.id, req.body);
     res.json(tx);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-router.delete('/transactions/:id', (req, res) => {
+router.delete('/transactions/:id', async (req, res) => {
   try {
-    const result = TransactionService.delete(req.user.id, req.params.id);
+    const result = await TransactionService.delete(req.user.id, req.params.id);
     res.json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-router.post('/transactions/:id/duplicate', (req, res) => {
+router.post('/transactions/:id/duplicate', async (req, res) => {
   try {
-    const duplicated = TransactionService.duplicate(req.user.id, req.params.id);
+    const duplicated = await TransactionService.duplicate(req.user.id, req.params.id);
     res.status(201).json(duplicated);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -146,27 +146,27 @@ router.post('/transactions/:id/duplicate', (req, res) => {
 // -------------------------------------------------------------
 // TRANSFERS
 // -------------------------------------------------------------
-router.get('/transfers', (req, res) => {
+router.get('/transfers', async (req, res) => {
   try {
-    const list = TransferService.list(req.user.id);
+    const list = await TransferService.list(req.user.id);
     res.json(list);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.post('/transfers', (req, res) => {
+router.post('/transfers', async (req, res) => {
   try {
-    const transfer = TransferService.create(req.user.id, req.body);
+    const transfer = await TransferService.create(req.user.id, req.body);
     res.status(201).json(transfer);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-router.delete('/transfers/:id', (req, res) => {
+router.delete('/transfers/:id', async (req, res) => {
   try {
-    const result = TransferService.delete(req.user.id, req.params.id);
+    const result = await TransferService.delete(req.user.id, req.params.id);
     res.json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -176,36 +176,36 @@ router.delete('/transfers/:id', (req, res) => {
 // -------------------------------------------------------------
 // ACCOUNTS
 // -------------------------------------------------------------
-router.get('/accounts', (req, res) => {
+router.get('/accounts', async (req, res) => {
   try {
-    const list = AccountService.list(req.user.id);
+    const list = await AccountService.list(req.user.id);
     res.json(list);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.post('/accounts', (req, res) => {
+router.post('/accounts', async (req, res) => {
   try {
-    const acc = AccountService.create(req.user.id, req.body);
+    const acc = await AccountService.create(req.user.id, req.body);
     res.status(201).json(acc);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-router.put('/accounts/:id', (req, res) => {
+router.put('/accounts/:id', async (req, res) => {
   try {
-    const acc = AccountService.update(req.user.id, req.params.id, req.body);
+    const acc = await AccountService.update(req.user.id, req.params.id, req.body);
     res.json(acc);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-router.delete('/accounts/:id', (req, res) => {
+router.delete('/accounts/:id', async (req, res) => {
   try {
-    AccountService.delete(req.user.id, req.params.id);
+    await AccountService.delete(req.user.id, req.params.id);
     res.json({ success: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -215,36 +215,36 @@ router.delete('/accounts/:id', (req, res) => {
 // -------------------------------------------------------------
 // CREDIT CARDS
 // -------------------------------------------------------------
-router.get('/credit-cards', (req, res) => {
+router.get('/credit-cards', async (req, res) => {
   try {
-    const list = CreditCardService.list(req.user.id);
+    const list = await CreditCardService.list(req.user.id);
     res.json(list);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.post('/credit-cards', (req, res) => {
+router.post('/credit-cards', async (req, res) => {
   try {
-    const card = CreditCardService.create(req.user.id, req.body);
+    const card = await CreditCardService.create(req.user.id, req.body);
     res.status(201).json(card);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-router.put('/credit-cards/:id', (req, res) => {
+router.put('/credit-cards/:id', async (req, res) => {
   try {
-    const card = CreditCardService.update(req.user.id, req.params.id, req.body);
+    const card = await CreditCardService.update(req.user.id, req.params.id, req.body);
     res.json(card);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-router.delete('/credit-cards/:id', (req, res) => {
+router.delete('/credit-cards/:id', async (req, res) => {
   try {
-    CreditCardService.delete(req.user.id, req.params.id);
+    await CreditCardService.delete(req.user.id, req.params.id);
     res.json({ success: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -254,36 +254,36 @@ router.delete('/credit-cards/:id', (req, res) => {
 // -------------------------------------------------------------
 // CATEGORIES
 // -------------------------------------------------------------
-router.get('/categories', (req, res) => {
+router.get('/categories', async (req, res) => {
   try {
-    const list = CategoryService.list(req.user.id, req.query.type);
+    const list = await CategoryService.list(req.user.id, req.query.type);
     res.json(list);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.post('/categories', (req, res) => {
+router.post('/categories', async (req, res) => {
   try {
-    const cat = CategoryService.create(req.user.id, req.body);
+    const cat = await CategoryService.create(req.user.id, req.body);
     res.status(201).json(cat);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-router.put('/categories/:id', (req, res) => {
+router.put('/categories/:id', async (req, res) => {
   try {
-    const cat = CategoryService.update(req.user.id, req.params.id, req.body);
+    const cat = await CategoryService.update(req.user.id, req.params.id, req.body);
     res.json(cat);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-router.delete('/categories/:id', (req, res) => {
+router.delete('/categories/:id', async (req, res) => {
   try {
-    CategoryService.delete(req.user.id, req.params.id);
+    await CategoryService.delete(req.user.id, req.params.id);
     res.json({ success: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -293,27 +293,27 @@ router.delete('/categories/:id', (req, res) => {
 // -------------------------------------------------------------
 // BUDGETS
 // -------------------------------------------------------------
-router.get('/budgets', (req, res) => {
+router.get('/budgets', async (req, res) => {
   try {
-    const list = BudgetService.getMonthlyBudgets(req.user.id, req.query.month, req.query.year);
+    const list = await BudgetService.getMonthlyBudgets(req.user.id, req.query.month, req.query.year);
     res.json(list);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.post('/budgets', (req, res) => {
+router.post('/budgets', async (req, res) => {
   try {
-    const result = BudgetService.setBudget(req.user.id, req.body);
+    const result = await BudgetService.setBudget(req.user.id, req.body);
     res.status(201).json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-router.delete('/budgets/:id', (req, res) => {
+router.delete('/budgets/:id', async (req, res) => {
   try {
-    BudgetService.delete(req.user.id, req.params.id);
+    await BudgetService.delete(req.user.id, req.params.id);
     res.json({ success: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -323,37 +323,37 @@ router.delete('/budgets/:id', (req, res) => {
 // -------------------------------------------------------------
 // RECURRING TRANSACTIONS
 // -------------------------------------------------------------
-router.get('/recurring', (req, res) => {
+router.get('/recurring', async (req, res) => {
   try {
-    const list = RecurringService.list(req.user.id);
+    const list = await RecurringService.list(req.user.id);
     res.json(list);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.post('/recurring', (req, res) => {
+router.post('/recurring', async (req, res) => {
   try {
-    const rec = RecurringService.create(req.user.id, req.body);
+    const rec = await RecurringService.create(req.user.id, req.body);
     res.status(201).json(rec);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-router.post('/recurring/cancel', (req, res) => {
+router.post('/recurring/cancel', async (req, res) => {
   try {
     const { keyword } = req.body;
-    const result = RecurringService.cancel(req.user.id, keyword);
+    const result = await RecurringService.cancel(req.user.id, keyword);
     res.json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-router.delete('/recurring/:id', (req, res) => {
+router.delete('/recurring/:id', async (req, res) => {
   try {
-    RecurringService.delete(req.user.id, req.params.id);
+    await RecurringService.delete(req.user.id, req.params.id);
     res.json({ success: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -363,27 +363,27 @@ router.delete('/recurring/:id', (req, res) => {
 // -------------------------------------------------------------
 // REPORTS & DASHBOARD & EXPORT
 // -------------------------------------------------------------
-router.get('/reports/dashboard', (req, res) => {
+router.get('/reports/dashboard', async (req, res) => {
   try {
-    const summary = ReportService.getDashboardSummary(req.user.id, req.query.month, req.query.year);
+    const summary = await ReportService.getDashboardSummary(req.user.id, req.query.month, req.query.year);
     res.json(summary);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.get('/reports/monthly', (req, res) => {
+router.get('/reports/monthly', async (req, res) => {
   try {
-    const data = ReportService.getReportsData(req.user.id, req.query.month, req.query.year);
+    const data = await ReportService.getReportsData(req.user.id, req.query.month, req.query.year);
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.get('/reports/export/csv', (req, res) => {
+router.get('/reports/export/csv', async (req, res) => {
   try {
-    const csvData = ReportService.exportCSV(req.user.id);
+    const csvData = await ReportService.exportCSV(req.user.id);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="financas.csv"');
     res.send(csvData);
@@ -392,9 +392,9 @@ router.get('/reports/export/csv', (req, res) => {
   }
 });
 
-router.get('/reports/export/excel', (req, res) => {
+router.get('/reports/export/excel', async (req, res) => {
   try {
-    const buffer = ReportService.exportExcel(req.user.id);
+    const buffer = await ReportService.exportExcel(req.user.id);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="financas.xlsx"');
     res.send(buffer);

@@ -5,26 +5,26 @@ import { queryOne, execute, transaction } from '../db/database.js';
 import { createDefaultCategoriesForUser } from '../db/seed.js';
 import { config } from '../config/index.js';
 
-export function initializeNewUserResources(userId) {
+export async function initializeNewUserResources(userId) {
   // 1. Create Default Categories
-  createDefaultCategoriesForUser(userId);
+  await createDefaultCategoriesForUser(userId);
 
   // 2. Create Default Accounts
   const accNubankId = crypto.randomUUID();
   const accCashId = crypto.randomUUID();
 
-  execute(
+  await execute(
     'INSERT INTO accounts (id, user_id, name, type, institution, initial_balance, current_balance, active) VALUES (?, ?, ?, ?, ?, ?, ?, 1)',
     [accNubankId, userId, 'Nubank Conta', 'checking', 'Nubank', 0.0, 0.0]
   );
-  execute(
+  await execute(
     'INSERT INTO accounts (id, user_id, name, type, institution, initial_balance, current_balance, active) VALUES (?, ?, ?, ?, ?, ?, ?, 1)',
     [accCashId, userId, 'Carteira / Dinheiro', 'cash', 'Dinheiro', 0.0, 0.0]
   );
 
   // 3. Create Default Credit Card
   const cardId = crypto.randomUUID();
-  execute(
+  await execute(
     'INSERT INTO credit_cards (id, user_id, name, institution, credit_limit, closing_day, due_day, active) VALUES (?, ?, ?, ?, ?, ?, ?, 1)',
     [cardId, userId, 'Cartão de Crédito Nubank', 'Nubank', 3500.0, 25, 5]
   );
@@ -34,8 +34,8 @@ export function initializeNewUserResources(userId) {
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
 
-  const getCatId = (name) => {
-    const row = queryOne('SELECT id FROM categories WHERE user_id = ? AND name = ?', [userId, name]);
+  const getCatId = async (name) => {
+    const row = await queryOne('SELECT id FROM categories WHERE user_id = ? AND name = ?', [userId, name]);
     return row ? row.id : null;
   };
 
@@ -47,9 +47,9 @@ export function initializeNewUserResources(userId) {
   ];
 
   for (const b of starterBudgets) {
-    const cId = getCatId(b.name);
+    const cId = await getCatId(b.name);
     if (cId) {
-      execute(
+      await execute(
         'INSERT INTO budgets (id, user_id, category_id, amount, month, year) VALUES (?, ?, ?, ?, ?, ?)',
         [crypto.randomUUID(), userId, cId, b.amount, currentMonth, currentYear]
       );
@@ -58,13 +58,13 @@ export function initializeNewUserResources(userId) {
 }
 
 export class AuthService {
-  static register(name, email, password) {
+  static async register(name, email, password) {
     if (!name || !email || !password) {
       throw new Error('Nome, email e senha são obrigatórios');
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    const existing = queryOne('SELECT id FROM users WHERE email = ?', [cleanEmail]);
+    const existing = await queryOne('SELECT id FROM users WHERE email = ?', [cleanEmail]);
     if (existing) {
       throw new Error('Já existe um usuário cadastrado com este e-mail');
     }
@@ -72,14 +72,14 @@ export class AuthService {
     const userId = crypto.randomUUID();
     const passwordHash = bcrypt.hashSync(password, 8);
 
-    transaction(() => {
-      execute(
+    await transaction(async () => {
+      await execute(
         'INSERT INTO users (id, name, email, password_hash) VALUES (?, ?, ?, ?)',
         [userId, name.trim(), cleanEmail, passwordHash]
       );
 
       // Initialize all starter accounts, categories, cards and budgets
-      initializeNewUserResources(userId);
+      await initializeNewUserResources(userId);
     });
 
     const token = jwt.sign(
@@ -94,13 +94,13 @@ export class AuthService {
     };
   }
 
-  static login(email, password) {
+  static async login(email, password) {
     if (!email || !password) {
       throw new Error('E-mail e senha são obrigatórios');
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    const user = queryOne('SELECT * FROM users WHERE email = ?', [cleanEmail]);
+    const user = await queryOne('SELECT * FROM users WHERE email = ?', [cleanEmail]);
     if (!user) {
       throw new Error('Credenciais inválidas');
     }
@@ -122,8 +122,8 @@ export class AuthService {
     };
   }
 
-  static getProfile(userId) {
-    const user = queryOne('SELECT id, name, email, created_at FROM users WHERE id = ?', [userId]);
+  static async getProfile(userId) {
+    const user = await queryOne('SELECT id, name, email, created_at FROM users WHERE id = ?', [userId]);
     if (!user) {
       throw new Error('Usuário não encontrado');
     }

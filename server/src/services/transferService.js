@@ -2,8 +2,8 @@ import crypto from 'node:crypto';
 import { queryAll, queryOne, execute, transaction } from '../db/database.js';
 
 export class TransferService {
-  static list(userId) {
-    return queryAll(
+  static async list(userId) {
+    return await queryAll(
       `SELECT t.*,
               sa.name as source_account_name, sa.institution as source_institution,
               da.name as destination_account_name, da.institution as destination_institution
@@ -16,8 +16,8 @@ export class TransferService {
     );
   }
 
-  static getById(userId, id) {
-    return queryOne(
+  static async getById(userId, id) {
+    return await queryOne(
       `SELECT t.*,
               sa.name as source_account_name,
               da.name as destination_account_name
@@ -29,7 +29,7 @@ export class TransferService {
     );
   }
 
-  static create(userId, { sourceAccountId, destinationAccountId, amount, date, description }) {
+  static async create(userId, { sourceAccountId, destinationAccountId, amount, date, description }) {
     if (!sourceAccountId || !destinationAccountId) {
       throw new Error('Contas de origem e destino são obrigatórias');
     }
@@ -47,53 +47,53 @@ export class TransferService {
     const transferDate = date || `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
     const desc = (description || 'Transferência entre contas').trim();
 
-    return transaction(() => {
+    return await transaction(async () => {
       // 1. Check if both accounts exist and belong to user
-      const sourceAcc = queryOne('SELECT * FROM accounts WHERE id = ? AND user_id = ?', [sourceAccountId, userId]);
-      const destAcc = queryOne('SELECT * FROM accounts WHERE id = ? AND user_id = ?', [destinationAccountId, userId]);
+      const sourceAcc = await queryOne('SELECT * FROM accounts WHERE id = ? AND user_id = ?', [sourceAccountId, userId]);
+      const destAcc = await queryOne('SELECT * FROM accounts WHERE id = ? AND user_id = ?', [destinationAccountId, userId]);
       if (!sourceAcc || !destAcc) {
         throw new Error('Uma ou ambas as contas não foram encontradas');
       }
 
       // 2. Insert Transfer record
-      execute(
+      await execute(
         `INSERT INTO transfers (id, user_id, source_account_id, destination_account_id, amount, date, description)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [id, userId, sourceAccountId, destinationAccountId, transferAmount, transferDate, desc]
       );
 
       // 3. Decrease balance from source account
-      execute(
+      await execute(
         'UPDATE accounts SET current_balance = current_balance - ? WHERE id = ? AND user_id = ?',
         [transferAmount, sourceAccountId, userId]
       );
 
       // 4. Increase balance on destination account
-      execute(
+      await execute(
         'UPDATE accounts SET current_balance = current_balance + ? WHERE id = ? AND user_id = ?',
         [transferAmount, destinationAccountId, userId]
       );
 
-      return this.getById(userId, id);
+      return await this.getById(userId, id);
     });
   }
 
-  static delete(userId, id) {
-    const existing = this.getById(userId, id);
+  static async delete(userId, id) {
+    const existing = await this.getById(userId, id);
     if (!existing) throw new Error('Transferência não encontrada');
 
-    return transaction(() => {
+    return await transaction(async () => {
       // Revert balances
-      execute(
+      await execute(
         'UPDATE accounts SET current_balance = current_balance + ? WHERE id = ? AND user_id = ?',
         [existing.amount, existing.source_account_id, userId]
       );
-      execute(
+      await execute(
         'UPDATE accounts SET current_balance = current_balance - ? WHERE id = ? AND user_id = ?',
         [existing.amount, existing.destination_account_id, userId]
       );
 
-      execute('DELETE FROM transfers WHERE id = ? AND user_id = ?', [id, userId]);
+      await execute('DELETE FROM transfers WHERE id = ? AND user_id = ?', [id, userId]);
       return { success: true };
     });
   }

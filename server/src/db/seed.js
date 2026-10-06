@@ -25,39 +25,33 @@ export const DEFAULT_CATEGORIES = [
   { name: 'Outros', icon: '📦', color: '#94a3b8', type: 'expense' }
 ];
 
-export function createDefaultCategoriesForUser(userId) {
+export async function createDefaultCategoriesForUser(userId) {
   const insertStmt = `INSERT INTO categories (id, user_id, name, type, icon, color, active) VALUES (?, ?, ?, ?, ?, ?, 1)`;
   for (const cat of DEFAULT_CATEGORIES) {
-    execute(insertStmt, [crypto.randomUUID(), userId, cat.name, cat.type, cat.icon, cat.color]);
+    await execute(insertStmt, [crypto.randomUUID(), userId, cat.name, cat.type, cat.icon, cat.color]);
   }
 }
 
-export function seedDemoDataIfEmpty() {
-  const existingUser = queryOne('SELECT id FROM users LIMIT 1');
+export async function seedDemoDataIfEmpty() {
+  const existingUser = await queryOne('SELECT id FROM users LIMIT 1');
   if (existingUser) {
     return; // Already seeded
   }
 
-  transaction(() => {
+  await transaction(async () => {
     // 1. Create Demo User
     const userId = crypto.randomUUID();
     const passwordHash = bcrypt.hashSync('123456', 8);
-    execute(
+    await execute(
       'INSERT INTO users (id, name, email, password_hash) VALUES (?, ?, ?, ?)',
       [userId, 'Alexandre', 'demo@finai.com', passwordHash]
     );
 
     // 2. Create Default Categories
-    createDefaultCategoriesForUser(userId);
+    await createDefaultCategoriesForUser(userId);
 
-    // Fetch created categories mapping
-    const catRows = queryOne(
-      'SELECT id FROM categories WHERE user_id = ? AND name = ?',
-      [userId, 'Alimentação']
-    );
-
-    const getCatId = (name) => {
-      const row = queryOne('SELECT id FROM categories WHERE user_id = ? AND name = ?', [userId, name]);
+    const getCatId = async (name) => {
+      const row = await queryOne('SELECT id FROM categories WHERE user_id = ? AND name = ?', [userId, name]);
       return row ? row.id : null;
     };
 
@@ -66,15 +60,15 @@ export function seedDemoDataIfEmpty() {
     const accInterId = crypto.randomUUID();
     const accCashId = crypto.randomUUID();
 
-    execute(
+    await execute(
       'INSERT INTO accounts (id, user_id, name, type, institution, initial_balance, current_balance, active) VALUES (?, ?, ?, ?, ?, ?, ?, 1)',
       [accNubankId, userId, 'Nubank Conta', 'checking', 'Nubank', 1500.0, 1500.0]
     );
-    execute(
+    await execute(
       'INSERT INTO accounts (id, user_id, name, type, institution, initial_balance, current_balance, active) VALUES (?, ?, ?, ?, ?, ?, ?, 1)',
       [accInterId, userId, 'Inter Conta', 'checking', 'Inter', 3200.0, 3200.0]
     );
-    execute(
+    await execute(
       'INSERT INTO accounts (id, user_id, name, type, institution, initial_balance, current_balance, active) VALUES (?, ?, ?, ?, ?, ?, ?, 1)',
       [accCashId, userId, 'Carteira / Dinheiro', 'cash', 'Dinheiro', 120.50, 120.50]
     );
@@ -83,11 +77,11 @@ export function seedDemoDataIfEmpty() {
     const cardNubankId = crypto.randomUUID();
     const cardInterId = crypto.randomUUID();
 
-    execute(
+    await execute(
       'INSERT INTO credit_cards (id, user_id, name, institution, credit_limit, closing_day, due_day, active) VALUES (?, ?, ?, ?, ?, ?, ?, 1)',
       [cardNubankId, userId, 'Cartão Nubank', 'Nubank', 5000.0, 25, 5]
     );
-    execute(
+    await execute(
       'INSERT INTO credit_cards (id, user_id, name, institution, credit_limit, closing_day, due_day, active) VALUES (?, ?, ?, ?, ?, ?, ?, 1)',
       [cardInterId, userId, 'Cartão Inter Gold', 'Inter', 3000.0, 20, 28]
     );
@@ -105,9 +99,9 @@ export function seedDemoDataIfEmpty() {
     ];
 
     for (const b of budgetsData) {
-      const cId = getCatId(b.name);
+      const cId = await getCatId(b.name);
       if (cId) {
-        execute(
+        await execute(
           'INSERT INTO budgets (id, user_id, category_id, amount, month, year) VALUES (?, ?, ?, ?, ?, ?)',
           [crypto.randomUUID(), userId, cId, b.amount, currentMonth, currentYear]
         );
@@ -115,20 +109,31 @@ export function seedDemoDataIfEmpty() {
     }
 
     // 6. Create Recurring Transactions
-    execute(
+    const internetCat = await getCatId('Internet');
+    const assinaturasCat = await getCatId('Assinaturas');
+    const saudeCat = await getCatId('Saúde');
+    const salarioCat = await getCatId('Salário');
+    const freelanceCat = await getCatId('Freelance');
+    const moradiaCat = await getCatId('Moradia');
+    const energiaCat = await getCatId('Energia');
+    const mercadoCat = await getCatId('Mercado');
+    const alimentacaoCat = await getCatId('Alimentação');
+    const transporteCat = await getCatId('Transporte');
+
+    await execute(
       'INSERT INTO recurring_transactions (id, user_id, description, amount, type, category_id, account_id, credit_card_id, frequency, due_day, start_date, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)',
-      [crypto.randomUUID(), userId, 'Internet Fibra 500MB', 100.0, 'expense', getCatId('Internet'), accNubankId, null, 'monthly', 10, '2026-01-01']
+      [crypto.randomUUID(), userId, 'Internet Fibra 500MB', 100.0, 'expense', internetCat, accNubankId, null, 'monthly', 10, '2026-01-01']
     );
-    execute(
+    await execute(
       'INSERT INTO recurring_transactions (id, user_id, description, amount, type, category_id, account_id, credit_card_id, frequency, due_day, start_date, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)',
-      [crypto.randomUUID(), userId, 'Netflix Premium', 55.90, 'expense', getCatId('Assinaturas'), null, cardNubankId, 'monthly', 15, '2026-01-01']
+      [crypto.randomUUID(), userId, 'Netflix Premium', 55.90, 'expense', assinaturasCat, null, cardNubankId, 'monthly', 15, '2026-01-01']
     );
-    execute(
+    await execute(
       'INSERT INTO recurring_transactions (id, user_id, description, amount, type, category_id, account_id, credit_card_id, frequency, due_day, start_date, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)',
-      [crypto.randomUUID(), userId, 'Mensalidade Academia SmartFit', 120.0, 'expense', getCatId('Saúde'), null, cardNubankId, 'monthly', 20, '2026-01-01']
+      [crypto.randomUUID(), userId, 'Mensalidade Academia SmartFit', 120.0, 'expense', saudeCat, null, cardNubankId, 'monthly', 20, '2026-01-01']
     );
 
-    // 7. Seed Demo Transactions (Formatted with realistic dates)
+    // 7. Seed Demo Transactions
     const pad = (n) => String(n).padStart(2, '0');
     const todayStr = `${currentYear}-${pad(currentMonth)}-${pad(now.getDate())}`;
     
@@ -140,47 +145,44 @@ export function seedDemoDataIfEmpty() {
     const day8Str = `${currentYear}-${pad(currentMonth)}-08`;
 
     // Incomes
-    execute(
+    await execute(
       `INSERT INTO transactions (id, user_id, type, amount, description, category_id, account_id, payment_method, transaction_date, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [crypto.randomUUID(), userId, 'income', 6500.0, 'Salário Mensal', getCatId('Salário'), accInterId, 'pix', day5Str, 'Salário referente ao mês']
+      [crypto.randomUUID(), userId, 'income', 6500.0, 'Salário Mensal', salarioCat, accInterId, 'pix', day5Str, 'Salário referente ao mês']
     );
-    execute(
+    await execute(
       `INSERT INTO transactions (id, user_id, type, amount, description, category_id, account_id, payment_method, transaction_date, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [crypto.randomUUID(), userId, 'income', 800.0, 'Projeto Freelance Landing Page', getCatId('Freelance'), accNubankId, 'pix', day8Str, 'Freelance recebido via PIX']
+      [crypto.randomUUID(), userId, 'income', 800.0, 'Projeto Freelance Landing Page', freelanceCat, accNubankId, 'pix', day8Str, 'Freelance recebido via PIX']
     );
 
     // Expenses
-    execute(
+    await execute(
       `INSERT INTO transactions (id, user_id, type, amount, description, category_id, account_id, payment_method, transaction_date, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [crypto.randomUUID(), userId, 'expense', 1000.0, 'Aluguel do Apartamento', getCatId('Moradia'), accInterId, 'transferencia', day5Str, 'Aluguel mensal']
+      [crypto.randomUUID(), userId, 'expense', 1000.0, 'Aluguel do Apartamento', moradiaCat, accInterId, 'transferencia', day5Str, 'Aluguel mensal']
     );
-    execute(
+    await execute(
       `INSERT INTO transactions (id, user_id, type, amount, description, category_id, account_id, payment_method, transaction_date, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [crypto.randomUUID(), userId, 'expense', 120.0, 'Conta de Energia Elétrica', getCatId('Energia'), accNubankId, 'boleto', day8Str, 'Enel']
+      [crypto.randomUUID(), userId, 'expense', 120.0, 'Conta de Energia Elétrica', energiaCat, accNubankId, 'boleto', day8Str, 'Enel']
     );
-    execute(
+    await execute(
       `INSERT INTO transactions (id, user_id, type, amount, description, category_id, credit_card_id, payment_method, transaction_date, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [crypto.randomUUID(), userId, 'expense', 120.80, 'Compras no Pão de Açúcar', getCatId('Mercado'), cardNubankId, 'credito', yesterdayStr, 'Mercado da semana']
+      [crypto.randomUUID(), userId, 'expense', 120.80, 'Compras no Pão de Açúcar', mercadoCat, cardNubankId, 'credito', yesterdayStr, 'Mercado da semana']
     );
-    execute(
+    await execute(
       `INSERT INTO transactions (id, user_id, type, amount, description, category_id, account_id, payment_method, transaction_date, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [crypto.randomUUID(), userId, 'expense', 42.0, 'Almoço no Restaurante Buffet', getCatId('Alimentação'), accNubankId, 'debito', todayStr, 'Almoço com colegas']
+      [crypto.randomUUID(), userId, 'expense', 42.0, 'Almoço no Restaurante Buffet', alimentacaoCat, accNubankId, 'debito', todayStr, 'Almoço com colegas']
     );
-    execute(
+    await execute(
       `INSERT INTO transactions (id, user_id, type, amount, description, category_id, credit_card_id, payment_method, transaction_date, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [crypto.randomUUID(), userId, 'expense', 18.50, 'Corrida Uber Centro', getCatId('Transporte'), cardNubankId, 'credito', todayStr, 'Uber para reunião']
+      [crypto.randomUUID(), userId, 'expense', 18.50, 'Corrida Uber Centro', transporteCat, cardNubankId, 'credito', todayStr, 'Uber para reunião']
     );
 
     // 8. Seed a Sample Transfer
-    execute(
+    await execute(
       `INSERT INTO transfers (id, user_id, source_account_id, destination_account_id, amount, date, description) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [crypto.randomUUID(), userId, accInterId, accNubankId, 500.0, day8Str, 'Transferência de reserva para Nubank']
     );
 
-    // Recalculate account balances based on transactions & transfers
-    // Inter: initial 3200 + 6500 (salario) - 1000 (aluguel) - 500 (transfer out) = 8200
-    execute('UPDATE accounts SET current_balance = 8200.0 WHERE id = ?', [accInterId]);
-    // Nubank: initial 1500 + 800 (freelance) - 120 (energia) - 42 (almoco) + 500 (transfer in) = 2638
-    execute('UPDATE accounts SET current_balance = 2638.0 WHERE id = ?', [accNubankId]);
+    await execute('UPDATE accounts SET current_balance = 8200.0 WHERE id = ?', [accInterId]);
+    await execute('UPDATE accounts SET current_balance = 2638.0 WHERE id = ?', [accNubankId]);
   });
 }

@@ -2,7 +2,7 @@ import crypto from 'node:crypto';
 import { queryAll, queryOne, execute, transaction } from '../db/database.js';
 
 export class TransactionService {
-  static list(userId, filters = {}) {
+  static async list(userId, filters = {}) {
     let sql = `
       SELECT t.*,
              c.name as category_name, c.icon as category_icon, c.color as category_color,
@@ -78,11 +78,15 @@ export class TransactionService {
       params.push(parseInt(filters.limit, 10));
     }
 
-    return queryAll(sql, params);
+    const rows = await queryAll(sql, params);
+    return rows.map(r => ({
+      ...r,
+      amount: parseFloat(r.amount) || 0
+    }));
   }
 
-  static getById(userId, id) {
-    return queryOne(
+  static async getById(userId, id) {
+    const r = await queryOne(
       `SELECT t.*,
               c.name as category_name, c.icon as category_icon, c.color as category_color,
               a.name as account_name,
@@ -94,10 +98,15 @@ export class TransactionService {
        WHERE t.id = ? AND t.user_id = ?`,
       [id, userId]
     );
+    if (!r) return null;
+    return {
+      ...r,
+      amount: parseFloat(r.amount) || 0
+    };
   }
 
-  static getLastTransaction(userId) {
-    return queryOne(
+  static async getLastTransaction(userId) {
+    const r = await queryOne(
       `SELECT t.*, c.name as category_name, c.icon as category_icon
        FROM transactions t
        LEFT JOIN categories c ON t.category_id = c.id
@@ -105,9 +114,14 @@ export class TransactionService {
        ORDER BY t.created_at DESC LIMIT 1`,
       [userId]
     );
+    if (!r) return null;
+    return {
+      ...r,
+      amount: parseFloat(r.amount) || 0
+    };
   }
 
-  static create(userId, data) {
+  static async create(userId, data) {
     const id = crypto.randomUUID();
     const amount = Math.abs(parseFloat(data.amount) || 0);
     const type = data.type === 'income' ? 'income' : 'expense';
@@ -120,8 +134,8 @@ export class TransactionService {
     const time = data.time || data.transaction_time || timeStr;
     const description = (data.description || (type === 'income' ? 'Receita' : 'Despesa')).trim();
 
-    return transaction(() => {
-      execute(
+    return await transaction(async () => {
+      await execute(
         `INSERT INTO transactions 
          (id, user_id, type, amount, description, category_id, account_id, credit_card_id, payment_method, transaction_date, transaction_time, notes, recurring_id, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -147,29 +161,29 @@ export class TransactionService {
       const targetAccountId = data.accountId || data.account_id;
       if (targetAccountId) {
         const delta = type === 'income' ? amount : -amount;
-        execute(
+        await execute(
           'UPDATE accounts SET current_balance = current_balance + ? WHERE id = ? AND user_id = ?',
           [delta, targetAccountId, userId]
         );
       }
 
       // Update conversation context last_transaction_id
-      execute(
+      await execute(
         `INSERT INTO conversation_context (user_id, last_transaction_id, updated_at)
-         VALUES (?, ?, datetime('now', 'localtime'))
+         VALUES (?, ?, CURRENT_TIMESTAMP)
          ON CONFLICT(user_id) DO UPDATE SET last_transaction_id = excluded.last_transaction_id, updated_at = excluded.updated_at`,
         [userId, id]
       );
 
-      return this.getById(userId, id);
+      return await this.getById(userId, id);
     });
   }
 
-  static update(userId, id, updates) {
-    const existing = this.getById(userId, id);
+  static async update(userId, id, updates) {
+    const existing = await this.getById(userId, id);
     if (!existing) throw new Error('Transação não encontrada');
 
-    return transaction(() => {
+    return await transaction(async () => {
       const newAmount = updates.amount !== undefined ? Math.abs(parseFloat(updates.amount)) : existing.amount;
       const newType = updates.type || existing.type;
       const newAccountId = updates.accountId !== undefined ? updates.accountId : existing.account_id;
@@ -177,7 +191,7 @@ export class TransactionService {
       // Revert previous account balance impact
       if (existing.account_id) {
         const revertDelta = existing.type === 'income' ? -existing.amount : existing.amount;
-        execute(
+        await execute(
           'UPDATE accounts SET current_balance = current_balance + ? WHERE id = ? AND user_id = ?',
           [revertDelta, existing.account_id, userId]
         );
@@ -186,13 +200,13 @@ export class TransactionService {
       // Apply new account balance impact
       if (newAccountId) {
         const applyDelta = newType === 'income' ? newAmount : -newAmount;
-        execute(
+        await execute(
           'UPDATE accounts SET current_balance = current_balance + ? WHERE id = ? AND user_id = ?',
           [applyDelta, newAccountId, userId]
         );
       }
 
-      execute(
+      await execute(
         `UPDATE transactions
          SET type = ?,
              amount = ?,
@@ -203,7 +217,7 @@ export class TransactionService {
              payment_method = COALESCE(?, payment_method),
              transaction_date = COALESCE(?, transaction_date),
              notes = COALESCE(?, notes),
-             updated_at = datetime('now', 'localtime')
+             updated_at = CURRENT_TIMESTAMP
          WHERE id = ? AND user_id = ?`,
         [
           newType,
@@ -220,38 +234,38 @@ export class TransactionService {
         ]
       );
 
-      return this.getById(userId, id);
+      return await this.getById(userId, id);
     });
   }
 
-  static delete(userId, id) {
-    const existing = this.getById(userId, id);
+  static async delete(userId, id) {
+    const existing = await this.getById(userId, id);
     if (!existing) throw new Error('Transação não encontrada');
 
-    return transaction(() => {
+    return await transaction(async () => {
       // Revert account balance
       if (existing.account_id) {
         const revertDelta = existing.type === 'income' ? -existing.amount : existing.amount;
-        execute(
+        await execute(
           'UPDATE accounts SET current_balance = current_balance + ? WHERE id = ? AND user_id = ?',
           [revertDelta, existing.account_id, userId]
         );
       }
 
-      execute('DELETE FROM transactions WHERE id = ? AND user_id = ?', [id, userId]);
+      await execute('DELETE FROM transactions WHERE id = ? AND user_id = ?', [id, userId]);
       return { success: true, deleted: existing };
     });
   }
 
-  static duplicate(userId, id) {
-    const existing = this.getById(userId, id);
+  static async duplicate(userId, id) {
+    const existing = await this.getById(userId, id);
     if (!existing) throw new Error('Transação não encontrada');
 
     const now = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
-    return this.create(userId, {
+    return await this.create(userId, {
       type: existing.type,
       amount: existing.amount,
       description: `${existing.description} (Cópia)`,

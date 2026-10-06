@@ -2,14 +2,14 @@ import crypto from 'node:crypto';
 import { queryAll, queryOne, execute } from '../db/database.js';
 
 export class BudgetService {
-  static getMonthlyBudgets(userId, month, year) {
+  static async getMonthlyBudgets(userId, month, year) {
     const now = new Date();
     const targetMonth = parseInt(month, 10) || (now.getMonth() + 1);
     const targetYear = parseInt(year, 10) || now.getFullYear();
     const pad = (n) => String(n).padStart(2, '0');
     const monthKey = `${targetYear}-${pad(targetMonth)}`;
 
-    const budgets = queryAll(
+    const budgets = await queryAll(
       `SELECT b.*,
               c.name as category_name, c.icon as category_icon, c.color as category_color,
               COALESCE(
@@ -29,8 +29,8 @@ export class BudgetService {
     );
 
     return budgets.map(b => {
-      const budgetAmount = b.amount || 0;
-      const spent = b.spent || 0;
+      const budgetAmount = parseFloat(b.amount) || 0;
+      const spent = parseFloat(b.spent) || 0;
       const remaining = budgetAmount - spent;
       const percentage = budgetAmount > 0 ? Math.round((spent / budgetAmount) * 1000) / 10 : 0;
 
@@ -52,26 +52,26 @@ export class BudgetService {
     });
   }
 
-  static setBudget(userId, { categoryId, amount, month, year }) {
+  static async setBudget(userId, { categoryId, amount, month, year }) {
     const now = new Date();
     const targetMonth = parseInt(month, 10) || (now.getMonth() + 1);
     const targetYear = parseInt(year, 10) || now.getFullYear();
     const budgetAmount = Math.abs(parseFloat(amount) || 0);
 
-    const existing = queryOne(
+    const existing = await queryOne(
       'SELECT id FROM budgets WHERE user_id = ? AND category_id = ? AND month = ? AND year = ?',
       [userId, categoryId, targetMonth, targetYear]
     );
 
     if (existing) {
-      execute(
+      await execute(
         'UPDATE budgets SET amount = ? WHERE id = ? AND user_id = ?',
         [budgetAmount, existing.id, userId]
       );
       return { id: existing.id, updated: true };
     } else {
       const id = crypto.randomUUID();
-      execute(
+      await execute(
         'INSERT INTO budgets (id, user_id, category_id, amount, month, year) VALUES (?, ?, ?, ?, ?, ?)',
         [id, userId, categoryId, budgetAmount, targetMonth, targetYear]
       );
@@ -79,7 +79,7 @@ export class BudgetService {
     }
   }
 
-  static delete(userId, id) {
-    return execute('DELETE FROM budgets WHERE id = ? AND user_id = ?', [id, userId]);
+  static async delete(userId, id) {
+    return await execute('DELETE FROM budgets WHERE id = ? AND user_id = ?', [id, userId]);
   }
 }

@@ -2,7 +2,7 @@ import { queryAll, queryOne } from '../db/database.js';
 import * as XLSX from 'xlsx';
 
 export class ReportService {
-  static getDashboardSummary(userId, month, year) {
+  static async getDashboardSummary(userId, month, year) {
     const now = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     const targetMonth = parseInt(month, 10) || (now.getMonth() + 1);
@@ -11,62 +11,67 @@ export class ReportService {
     const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 
     // 1. Total Balance across active accounts
-    const balanceRow = queryOne(
+    const balanceRow = await queryOne(
       'SELECT COALESCE(SUM(current_balance), 0) as total_balance FROM accounts WHERE user_id = ? AND active = 1',
       [userId]
     );
-    const totalBalance = balanceRow ? balanceRow.total_balance : 0;
+    const totalBalance = balanceRow ? parseFloat(balanceRow.total_balance) : 0;
 
     // 2. Month Incomes
-    const incomeRow = queryOne(
+    const incomeRow = await queryOne(
       `SELECT COALESCE(SUM(amount), 0) as total_income
        FROM transactions
        WHERE user_id = ? AND type = 'income' AND strftime('%Y-%m', transaction_date) = ?`,
       [userId, monthKey]
     );
-    const monthIncome = incomeRow ? incomeRow.total_income : 0;
+    const monthIncome = incomeRow ? parseFloat(incomeRow.total_income) : 0;
 
     // 3. Month Expenses
-    const expenseRow = queryOne(
+    const expenseRow = await queryOne(
       `SELECT COALESCE(SUM(amount), 0) as total_expense
        FROM transactions
        WHERE user_id = ? AND type = 'expense' AND strftime('%Y-%m', transaction_date) = ?`,
       [userId, monthKey]
     );
-    const monthExpense = expenseRow ? expenseRow.total_expense : 0;
+    const monthExpense = expenseRow ? parseFloat(expenseRow.total_expense) : 0;
 
     // 4. Month Result
     const monthResult = monthIncome - monthExpense;
 
     // 5. Today Expenses
-    const todayRow = queryOne(
+    const todayRow = await queryOne(
       `SELECT COALESCE(SUM(amount), 0) as today_expense
        FROM transactions
        WHERE user_id = ? AND type = 'expense' AND transaction_date = ?`,
       [userId, todayStr]
     );
-    const todayExpense = todayRow ? todayRow.today_expense : 0;
+    const todayExpense = todayRow ? parseFloat(todayRow.today_expense) : 0;
 
     // 6. Expenses by Category
-    const categoryExpenses = queryAll(
+    const categoryExpenses = await queryAll(
       `SELECT c.id, c.name, c.icon, c.color,
               COALESCE(SUM(t.amount), 0) as total,
               COUNT(t.id) as count
        FROM categories c
        JOIN transactions t ON t.category_id = c.id
        WHERE t.user_id = ? AND t.type = 'expense' AND strftime('%Y-%m', t.transaction_date) = ?
-       GROUP BY c.id
+       GROUP BY c.id, c.name, c.icon, c.color
        ORDER BY total DESC`,
       [userId, monthKey]
     );
 
-    const categoriesWithPercent = categoryExpenses.map(cat => ({
-      ...cat,
-      percentage: monthExpense > 0 ? Math.round((cat.total / monthExpense) * 1000) / 10 : 0
-    }));
+    const categoriesWithPercent = categoryExpenses.map(cat => {
+      const tot = parseFloat(cat.total) || 0;
+      return {
+        ...cat,
+        total: tot,
+        count: parseInt(cat.count, 10) || 0,
+        percentage: monthExpense > 0 ? Math.round((tot / monthExpense) * 1000) / 10 : 0
+      };
+    });
 
     // 7. Recent Transactions (last 10)
-    const recentTransactions = queryAll(
+    const recentTransactionsRaw = await queryAll(
       `SELECT t.*,
               c.name as category_name, c.icon as category_icon, c.color as category_color,
               a.name as account_name,
@@ -80,9 +85,13 @@ export class ReportService {
        LIMIT 10`,
       [userId]
     );
+    const recentTransactions = recentTransactionsRaw.map(t => ({
+      ...t,
+      amount: parseFloat(t.amount) || 0
+    }));
 
     // 8. Upcoming Recurring Bills
-    const upcomingBills = queryAll(
+    const upcomingBillsRaw = await queryAll(
       `SELECT r.*, c.name as category_name, c.icon as category_icon
        FROM recurring_transactions r
        LEFT JOIN categories c ON r.category_id = c.id
@@ -90,27 +99,35 @@ export class ReportService {
        ORDER BY r.due_day ASC`,
       [userId]
     );
+    const upcomingBills = upcomingBillsRaw.map(r => ({
+      ...r,
+      amount: parseFloat(r.amount) || 0
+    }));
 
     // 9. Credit Cards Summary
-    const creditCards = queryAll(
+    const cards = await queryAll(
       `SELECT * FROM credit_cards WHERE user_id = ? AND active = 1`,
       [userId]
-    ).map(card => {
-      const usedRow = queryOne(
+    );
+    const creditCards = [];
+    for (const card of cards) {
+      const usedRow = await queryOne(
         `SELECT COALESCE(SUM(amount), 0) as used
          FROM transactions
          WHERE user_id = ? AND credit_card_id = ? AND type = 'expense'
            AND strftime('%Y-%m', transaction_date) = ?`,
         [userId, card.id, monthKey]
       );
-      const used = usedRow ? usedRow.used : 0;
-      return {
+      const used = usedRow ? parseFloat(usedRow.used) : 0;
+      const limit = parseFloat(card.credit_limit) || 0;
+      creditCards.push({
         ...card,
+        credit_limit: limit,
         limit_used: used,
-        limit_available: Math.max(0, (card.credit_limit || 0) - used),
+        limit_available: Math.max(0, limit - used),
         current_invoice: used
-      };
-    });
+      });
+    }
 
     return {
       period: { month: targetMonth, year: targetYear, monthKey },
@@ -128,14 +145,13 @@ export class ReportService {
     };
   }
 
-  static getReportsData(userId, month, year) {
+  static async getReportsData(userId, month, year) {
     const now = new Date();
     const pad = (n) => String(n).padStart(2, '0');
     const targetMonth = parseInt(month, 10) || (now.getMonth() + 1);
     const targetYear = parseInt(year, 10) || now.getFullYear();
     const currentMonthKey = `${targetYear}-${pad(targetMonth)}`;
 
-    // Previous month calculation
     const prevDate = new Date(targetYear, targetMonth - 2, 1);
     const prevMonthKey = `${prevDate.getFullYear()}-${pad(prevDate.getMonth() + 1)}`;
     const monthNames = [
@@ -144,64 +160,79 @@ export class ReportService {
     ];
 
     // Current Month Totals
-    const currentTotals = queryOne(
+    const currentTotalsRow = await queryOne(
       `SELECT 
          COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as income,
          COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as expense
        FROM transactions
        WHERE user_id = ? AND strftime('%Y-%m', transaction_date) = ?`,
       [userId, currentMonthKey]
-    ) || { income: 0, expense: 0 };
+    );
+    const currentTotals = {
+      income: currentTotalsRow ? parseFloat(currentTotalsRow.income) : 0,
+      expense: currentTotalsRow ? parseFloat(currentTotalsRow.expense) : 0
+    };
 
     // Previous Month Totals
-    const prevTotals = queryOne(
+    const prevTotalsRow = await queryOne(
       `SELECT 
          COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as income,
          COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as expense
        FROM transactions
        WHERE user_id = ? AND strftime('%Y-%m', transaction_date) = ?`,
       [userId, prevMonthKey]
-    ) || { income: 0, expense: 0 };
+    );
+    const prevTotals = {
+      income: prevTotalsRow ? parseFloat(prevTotalsRow.income) : 0,
+      expense: prevTotalsRow ? parseFloat(prevTotalsRow.expense) : 0
+    };
 
     // Expenses by Category
-    const categoryExpenses = queryAll(
+    const categoryExpensesRaw = await queryAll(
       `SELECT c.id, c.name, c.icon, c.color,
               COALESCE(SUM(t.amount), 0) as total,
               COUNT(t.id) as count
        FROM categories c
        JOIN transactions t ON t.category_id = c.id
        WHERE t.user_id = ? AND t.type = 'expense' AND strftime('%Y-%m', t.transaction_date) = ?
-       GROUP BY c.id
+       GROUP BY c.id, c.name, c.icon, c.color
        ORDER BY total DESC`,
       [userId, currentMonthKey]
     );
+    const categoryExpenses = categoryExpensesRaw.map(c => ({
+      ...c,
+      total: parseFloat(c.total) || 0,
+      count: parseInt(c.count, 10) || 0
+    }));
 
     // 6-month historical timeline
     const timeline = [];
     for (let i = 5; i >= 0; i--) {
       const d = new Date(targetYear, targetMonth - 1 - i, 1);
       const mKey = `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
-      const mRow = queryOne(
+      const mRow = await queryOne(
         `SELECT 
            COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) as income,
            COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) as expense
          FROM transactions
          WHERE user_id = ? AND strftime('%Y-%m', transaction_date) = ?`,
         [userId, mKey]
-      ) || { income: 0, expense: 0 };
+      );
+      const inc = mRow ? parseFloat(mRow.income) : 0;
+      const exp = mRow ? parseFloat(mRow.expense) : 0;
 
       timeline.push({
         monthKey: mKey,
         monthName: monthNames[d.getMonth()].slice(0, 3),
         year: d.getFullYear(),
-        income: mRow.income,
-        expense: mRow.expense,
-        result: mRow.income - mRow.expense
+        income: inc,
+        expense: exp,
+        result: inc - exp
       });
     }
 
     // Top 5 expenses of current month
-    const topExpenses = queryAll(
+    const topExpensesRaw = await queryAll(
       `SELECT t.*, c.name as category_name, c.icon as category_icon
        FROM transactions t
        LEFT JOIN categories c ON t.category_id = c.id
@@ -210,30 +241,42 @@ export class ReportService {
        LIMIT 5`,
       [userId, currentMonthKey]
     );
+    const topExpenses = topExpensesRaw.map(t => ({
+      ...t,
+      amount: parseFloat(t.amount) || 0
+    }));
 
     // Expenses by Account
-    const expensesByAccount = queryAll(
+    const expensesByAccountRaw = await queryAll(
       `SELECT a.name, a.institution, COALESCE(SUM(t.amount), 0) as total
        FROM accounts a
        JOIN transactions t ON t.account_id = a.id
        WHERE t.user_id = ? AND t.type = 'expense' AND strftime('%Y-%m', t.transaction_date) = ?
-       GROUP BY a.id
+       GROUP BY a.id, a.name, a.institution
        ORDER BY total DESC`,
       [userId, currentMonthKey]
     );
+    const expensesByAccount = expensesByAccountRaw.map(a => ({
+      ...a,
+      total: parseFloat(a.total) || 0
+    }));
 
     // Expenses by Credit Card
-    const expensesByCard = queryAll(
+    const expensesByCardRaw = await queryAll(
       `SELECT cc.name, cc.institution, COALESCE(SUM(t.amount), 0) as total
        FROM credit_cards cc
        JOIN transactions t ON t.credit_card_id = cc.id
        WHERE t.user_id = ? AND t.type = 'expense' AND strftime('%Y-%m', t.transaction_date) = ?
-       GROUP BY cc.id
+       GROUP BY cc.id, cc.name, cc.institution
        ORDER BY total DESC`,
       [userId, currentMonthKey]
     );
+    const expensesByCard = expensesByCardRaw.map(c => ({
+      ...c,
+      total: parseFloat(c.total) || 0
+    }));
 
-    // Smart Telemetry-driven Financial Insights (Section 19)
+    // Smart Telemetry-driven Financial Insights
     const insights = [];
     if (categoryExpenses.length > 0) {
       const topCat = categoryExpenses[0];
@@ -294,8 +337,8 @@ export class ReportService {
     };
   }
 
-  static exportCSV(userId) {
-    const transactions = queryAll(
+  static async exportCSV(userId) {
+    const transactions = await queryAll(
       `SELECT t.transaction_date as "Data",
               t.type as "Tipo",
               t.amount as "Valor",
@@ -322,12 +365,11 @@ export class ReportService {
       Object.values(row).map(val => `"${String(val).replace(/"/g, '""')}"`).join(';')
     );
 
-    // Include UTF-8 BOM so Excel opens with proper accents
     return '\uFEFF' + [headers, ...rows].join('\n');
   }
 
-  static exportExcel(userId) {
-    const transactions = queryAll(
+  static async exportExcel(userId) {
+    const transactions = await queryAll(
       `SELECT t.transaction_date as "Data",
               CASE WHEN t.type = 'income' THEN 'Receita' ELSE 'Despesa' END as "Tipo",
               t.amount as "Valor (R$)",
@@ -345,7 +387,7 @@ export class ReportService {
       [userId]
     );
 
-    const categories = queryAll(
+    const categories = await queryAll(
       `SELECT c.name as "Categoria",
               c.type as "Tipo",
               COALESCE(SUM(t.amount), 0) as "Total Acumulado (R$)",
@@ -353,7 +395,7 @@ export class ReportService {
        FROM categories c
        LEFT JOIN transactions t ON t.category_id = c.id AND t.user_id = ?
        WHERE c.user_id = ?
-       GROUP BY c.id
+       GROUP BY c.id, c.name, c.type
        ORDER BY "Total Acumulado (R$)" DESC`,
       [userId, userId]
     );
