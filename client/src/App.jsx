@@ -4,6 +4,7 @@ import { Header } from './components/Header.jsx';
 import { BottomNav } from './components/BottomNav.jsx';
 import { QuickAddModal } from './components/QuickAddModal.jsx';
 import { TransactionDetailModal } from './components/TransactionDetailModal.jsx';
+import { ImportStatementModal } from './components/ImportStatementModal.jsx';
 import { DashboardView } from './views/DashboardView.jsx';
 import { ChatView } from './views/ChatView.jsx';
 import { HistoryView } from './views/HistoryView.jsx';
@@ -17,6 +18,8 @@ function MainApp() {
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard', 'reports', 'chat', 'history', 'more'
   const [hideValues, setHideValues] = useState(false);
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [importAccountId, setImportAccountId] = useState(null);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [dataVersion, setDataVersion] = useState(0);
 
@@ -41,6 +44,11 @@ function MainApp() {
     setDataVersion((v) => v + 1);
   };
 
+  const handleOpenImport = (accountId = null) => {
+    setImportAccountId(accountId);
+    setIsImportOpen(true);
+  };
+
   return (
     <div className="mobile-frame">
       {/* Mobile Top Header (except in Chat View for a native immersive feel) */}
@@ -59,6 +67,7 @@ function MainApp() {
             key={`dash-${dataVersion}`}
             hideValues={hideValues}
             onOpenQuickAdd={() => setIsQuickAddOpen(true)}
+            onOpenImport={handleOpenImport}
             onOpenAssistant={() => setActiveTab('chat')}
             onSelectTransaction={(tx) => setSelectedTransaction(tx)}
             onNavigateTab={(tab) => setActiveTab(tab)}
@@ -77,12 +86,16 @@ function MainApp() {
           <HistoryView
             key={`hist-${dataVersion}`}
             hideValues={hideValues}
+            onOpenImport={handleOpenImport}
             onSelectTransaction={(tx) => setSelectedTransaction(tx)}
           />
         )}
 
         {activeTab === 'more' && (
-          <MoreView onDataChanged={handleDataChanged} />
+          <MoreView 
+            onDataChanged={handleDataChanged} 
+            onOpenImport={handleOpenImport}
+          />
         )}
       </main>
 
@@ -99,6 +112,14 @@ function MainApp() {
         onClose={() => setIsQuickAddOpen(false)}
         onSuccess={handleDataChanged}
         onOpenVoiceAssistant={() => setActiveTab('chat')}
+      />
+
+      {/* Import Bank Statement Modal */}
+      <ImportStatementModal
+        isOpen={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        onSuccess={handleDataChanged}
+        initialAccountId={importAccountId}
       />
 
       {/* Transaction Detail & Edit Modal */}

@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowDownRight, ArrowUpRight, ArrowLeftRight, TrendingUp, 
-  CreditCard, Calendar, AlertCircle, ChevronRight, ChevronLeft, Mic, Sparkles, RefreshCw, Wallet
+  CreditCard, Calendar, AlertCircle, ChevronRight, ChevronLeft, Mic, Sparkles, RefreshCw, Wallet,
+  FileSpreadsheet, UploadCloud
 } from 'lucide-react';
 import { apiClient } from '../api/client.js';
 
 export function DashboardView({ 
   hideValues, 
   onOpenQuickAdd, 
+  onOpenImport,
   onOpenAssistant, 
   onSelectTransaction, 
   onNavigateTab 
@@ -195,14 +197,30 @@ export function DashboardView({
                   </div>
                 </div>
 
-                {/* Balance Amount */}
-                <div className="mt-2.5 mb-3.5">
-                  <span className="text-[11px] text-slate-400 font-medium block">
-                    {card.isTotal ? 'Saldo Total Disponível' : `Saldo Disponível em ${card.name}`}
-                  </span>
-                  <h2 className="text-3xl font-extrabold tracking-tight text-white mt-0.5">
-                    {fmtBRL(card.balance)}
-                  </h2>
+                {/* Balance Amount & Extrato button */}
+                <div className="mt-2.5 mb-3 flex items-end justify-between">
+                  <div>
+                    <span className="text-[11px] text-slate-400 font-medium block">
+                      {card.isTotal ? 'Saldo Total Disponível' : `Saldo Disponível em ${card.name}`}
+                    </span>
+                    <h2 className="text-3xl font-extrabold tracking-tight text-white mt-0.5">
+                      {fmtBRL(card.balance)}
+                    </h2>
+                  </div>
+                  {!card.isTotal && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenImport?.(card.id);
+                      }}
+                      className="px-2.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-[11px] font-bold text-emerald-300 flex items-center gap-1.5 border border-white/15 transition-all shadow-xs"
+                      title={`Importar extrato para ${card.name}`}
+                    >
+                      <UploadCloud size={13} />
+                      <span>Extrato</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -308,13 +326,13 @@ export function DashboardView({
         </button>
 
         <button
-          onClick={() => onNavigateTab('reports')}
+          onClick={() => onOpenImport?.()}
           className="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
         >
-          <div className="w-8 h-8 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mb-1.5">
-            <TrendingUp size={18} />
+          <div className="w-8 h-8 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center mb-1.5">
+            <FileSpreadsheet size={18} />
           </div>
-          <span className="text-[11px] font-semibold text-slate-700">Relatórios</span>
+          <span className="text-[11px] font-semibold text-slate-700">Importar</span>
         </button>
       </div>
 

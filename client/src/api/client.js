@@ -265,5 +265,20 @@ export const apiClient = {
 
   deleteRecurring(id) {
     return this.request(`/recurring/${id}`, { method: 'DELETE' });
+  },
+
+  // Bank Statement Import (OFX / CSV / Excel)
+  parseStatement({ accountId, fileContent, fileName, isBase64 }) {
+    return this.request('/import/parse', {
+      method: 'POST',
+      body: { accountId, fileContent, fileName, isBase64 }
+    });
+  },
+
+  confirmStatementImport({ accountId, transactions }) {
+    return this.request('/import/confirm', {
+      method: 'POST',
+      body: { accountId, transactions }
+    });
   }
 };

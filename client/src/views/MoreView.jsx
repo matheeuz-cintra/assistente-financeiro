@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Wallet, CreditCard, Calendar, Target, Tags, KeyRound, 
-  LogOut, Plus, ChevronRight, Check, X, Trash2, Edit2, ShieldCheck, Download, FileSpreadsheet
+  LogOut, Plus, ChevronRight, Check, X, Trash2, Edit2, ShieldCheck, Download, FileSpreadsheet, UploadCloud
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { apiClient } from '../api/client.js';
 
-export function MoreView({ onDataChanged }) {
+export function MoreView({ onDataChanged, onOpenImport }) {
   const { user, logout } = useAuth();
   const [section, setSection] = useState('menu'); // 'menu', 'accounts', 'cards', 'recurring', 'budgets', 'categories', 'settings'
 
@@ -211,6 +211,25 @@ export function MoreView({ onDataChanged }) {
           </button>
 
           <button
+            onClick={() => onOpenImport?.()}
+            className="w-full p-4 flex items-center justify-between hover:bg-emerald-50/50 transition-colors bg-gradient-to-r from-emerald-50/40 via-teal-50/20 to-transparent"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center border border-emerald-500/20">
+                <FileSpreadsheet size={16} />
+              </div>
+              <div className="text-left">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-slate-800 block">Importar Extrato Bancário</span>
+                  <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-emerald-600 text-white">OFX / CSV</span>
+                </div>
+                <span className="text-[11px] text-slate-400">Nubank, Inter, Itaú, Bradesco e outros</span>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-slate-400" />
+          </button>
+
+          <button
             onClick={() => setSection('cards')}
             className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
           >
@@ -347,8 +366,15 @@ export function MoreView({ onDataChanged }) {
                   <span className="font-bold text-slate-800 block">{a.name}</span>
                   <span className="text-[10px] text-slate-400">{a.institution}</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="font-extrabold text-slate-800">{fmtBRL(a.current_balance)}</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-extrabold text-slate-800 mr-1">{fmtBRL(a.current_balance)}</span>
+                  <button
+                    onClick={() => onOpenImport?.(a.id)}
+                    className="px-2 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[10px] font-bold flex items-center gap-1 transition-colors active:scale-95"
+                    title={`Importar extrato para ${a.name}`}
+                  >
+                    <UploadCloud size={11} /> Importar
+                  </button>
                   <button
                     onClick={async () => {
                       if (confirm(`Remover conta ${a.name}?`)) {
@@ -356,7 +382,7 @@ export function MoreView({ onDataChanged }) {
                         notifyChange();
                       }
                     }}
-                    className="text-slate-300 hover:text-rose-500"
+                    className="text-slate-300 hover:text-rose-500 p-1"
                   >
                     <Trash2 size={14} />
                   </button>

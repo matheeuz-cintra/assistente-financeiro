@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, Calendar, Tag, CreditCard, ArrowDownRight, ArrowUpRight, RefreshCw, X } from 'lucide-react';
+import { Search, Filter, Calendar, Tag, CreditCard, ArrowDownRight, ArrowUpRight, RefreshCw, X, FileSpreadsheet } from 'lucide-react';
 import { apiClient } from '../api/client.js';
 
-export function HistoryView({ onSelectTransaction, hideValues }) {
+export function HistoryView({ onSelectTransaction, hideValues, onOpenImport }) {
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [accounts, setAccounts] = useState([]);
@@ -127,7 +127,7 @@ export function HistoryView({ onSelectTransaction, hideValues }) {
 
         <button
           onClick={() => setShowFiltersModal(true)}
-          className={`px-3 py-2.5 rounded-2xl border text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+          className={`px-3 py-2.5 rounded-2xl border text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 ${
             selectedCategory || selectedAccount || selectedCard
               ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
               : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
@@ -135,6 +135,16 @@ export function HistoryView({ onSelectTransaction, hideValues }) {
         >
           <Filter size={14} />
           Filtros
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onOpenImport?.()}
+          className="px-3 py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-bold flex items-center gap-1.5 transition-all shrink-0 shadow-xs"
+          title="Importar extrato bancário (OFX / CSV)"
+        >
+          <FileSpreadsheet size={14} className="text-emerald-400" />
+          Importar
         </button>
       </div>
 

@@ -10,6 +10,7 @@ import { BudgetService } from '../services/budgetService.js';
 import { RecurringService } from '../services/recurringService.js';
 import { ReportService } from '../services/reportService.js';
 import { AssistantService } from '../services/assistantService.js';
+import { StatementImportService } from '../services/statementImportService.js';
 
 export const router = express.Router();
 
@@ -437,5 +438,43 @@ router.get('/reports/export/excel', async (req, res) => {
     res.send(buffer);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// STATEMENT IMPORT (OFX / CSV / EXCEL)
+// -------------------------------------------------------------
+router.post('/import/parse', async (req, res) => {
+  try {
+    const { accountId, fileContent, fileName, isBase64 } = req.body;
+    if (!fileContent) {
+      return res.status(400).json({ error: 'Conteúdo do arquivo não fornecido.' });
+    }
+    const result = await StatementImportService.parseAndAnalyze(req.user.id, accountId, {
+      fileContent,
+      fileName,
+      isBase64
+    });
+    res.json(result);
+  } catch (err) {
+    console.error('Error in /import/parse:', err);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/import/confirm', async (req, res) => {
+  try {
+    const { accountId, transactions } = req.body;
+    if (!accountId) {
+      return res.status(400).json({ error: 'Conta de destino é obrigatória.' });
+    }
+    if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
+      return res.status(400).json({ error: 'Nenhuma transação selecionada para importação.' });
+    }
+    const result = await StatementImportService.confirmImport(req.user.id, accountId, transactions);
+    res.json(result);
+  } catch (err) {
+    console.error('Error in /import/confirm:', err);
+    res.status(400).json({ error: err.message });
   }
 });
