@@ -5,6 +5,7 @@ import { BottomNav } from './components/BottomNav.jsx';
 import { QuickAddModal } from './components/QuickAddModal.jsx';
 import { TransactionDetailModal } from './components/TransactionDetailModal.jsx';
 import { ImportStatementModal } from './components/ImportStatementModal.jsx';
+import { InstallAppModal } from './components/InstallAppModal.jsx';
 import { DashboardView } from './views/DashboardView.jsx';
 import { ChatView } from './views/ChatView.jsx';
 import { HistoryView } from './views/HistoryView.jsx';
@@ -19,6 +20,7 @@ function MainApp() {
   const [hideValues, setHideValues] = useState(false);
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isInstallOpen, setIsInstallOpen] = useState(false);
   const [importAccountId, setImportAccountId] = useState(null);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [dataVersion, setDataVersion] = useState(0);
@@ -57,6 +59,7 @@ function MainApp() {
           hideValues={hideValues}
           onToggleHideValues={() => setHideValues((v) => !v)}
           onOpenMore={() => setActiveTab('more')}
+          onOpenInstall={() => setIsInstallOpen(true)}
         />
       )}
 
@@ -68,6 +71,7 @@ function MainApp() {
             hideValues={hideValues}
             onOpenQuickAdd={() => setIsQuickAddOpen(true)}
             onOpenImport={handleOpenImport}
+            onOpenInstall={() => setIsInstallOpen(true)}
             onOpenAssistant={() => setActiveTab('chat')}
             onSelectTransaction={(tx) => setSelectedTransaction(tx)}
             onNavigateTab={(tab) => setActiveTab(tab)}
@@ -95,6 +99,7 @@ function MainApp() {
           <MoreView 
             onDataChanged={handleDataChanged} 
             onOpenImport={handleOpenImport}
+            onOpenInstall={() => setIsInstallOpen(true)}
           />
         )}
       </main>
@@ -120,6 +125,12 @@ function MainApp() {
         onClose={() => setIsImportOpen(false)}
         onSuccess={handleDataChanged}
         initialAccountId={importAccountId}
+      />
+
+      {/* Install App on Mobile PWA Modal */}
+      <InstallAppModal
+        isOpen={isInstallOpen}
+        onClose={() => setIsInstallOpen(false)}
       />
 
       {/* Transaction Detail & Edit Modal */}

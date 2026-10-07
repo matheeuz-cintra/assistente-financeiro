@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Wallet, CreditCard, Calendar, Target, Tags, KeyRound, 
-  LogOut, Plus, ChevronRight, Check, X, Trash2, Edit2, ShieldCheck, Download, FileSpreadsheet, UploadCloud
+  LogOut, Plus, ChevronRight, Check, X, Trash2, Edit2, ShieldCheck, Download, FileSpreadsheet, UploadCloud, Smartphone
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { apiClient } from '../api/client.js';
 
-export function MoreView({ onDataChanged, onOpenImport }) {
+export function MoreView({ onDataChanged, onOpenImport, onOpenInstall }) {
   const { user, logout } = useAuth();
   const [section, setSection] = useState('menu'); // 'menu', 'accounts', 'cards', 'recurring', 'budgets', 'categories', 'settings'
 
@@ -191,6 +191,31 @@ export function MoreView({ onDataChanged, onOpenImport }) {
             <LogOut size={18} />
           </button>
         </div>
+
+        {/* PWA Install Button Card */}
+        {onOpenInstall && (
+          <button
+            type="button"
+            onClick={onOpenInstall}
+            className="w-full p-4 rounded-3xl bg-gradient-to-r from-emerald-600 via-teal-600 to-slate-900 text-white flex items-center justify-between shadow-lg shadow-emerald-900/20 hover:scale-[1.01] active:scale-[0.99] transition-all text-left"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center shadow-inner">
+                <Smartphone size={20} className="text-white" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-xs block text-white">Instalar no Celular</span>
+                  <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded-md bg-white/20 text-emerald-200">100% Grátis</span>
+                </div>
+                <span className="text-[11px] text-emerald-100 block mt-0.5">
+                  Adicione à tela inicial para usar em tela cheia
+                </span>
+              </div>
+            </div>
+            <ChevronRight size={18} className="text-emerald-200" />
+          </button>
+        )}
 
         {/* Navigation List */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-xs divide-y divide-slate-100 overflow-hidden text-xs">

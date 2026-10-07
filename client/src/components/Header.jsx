@@ -1,9 +1,15 @@
-import React from 'react';
-import { Eye, EyeOff, SlidersHorizontal, Sparkles } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Eye, EyeOff, SlidersHorizontal, Sparkles, Smartphone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 
-export function Header({ hideValues, onToggleHideValues, onOpenMore }) {
+export function Header({ hideValues, onToggleHideValues, onOpenMore, onOpenInstall }) {
   const { user } = useAuth();
+  const [isStandalone, setIsStandalone] = useState(false);
+
+  useEffect(() => {
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    setIsStandalone(standalone);
+  }, []);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -37,7 +43,18 @@ export function Header({ hideValues, onToggleHideValues, onOpenMore }) {
         </h1>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
+        {!isStandalone && onOpenInstall && (
+          <button
+            onClick={onOpenInstall}
+            className="px-2.5 py-1.5 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 border border-emerald-500/30 text-[11px] font-extrabold flex items-center gap-1 shadow-xs transition-all active:scale-95 mr-1"
+            title="Instalar aplicativo no celular (100% Grátis)"
+          >
+            <Smartphone size={13} className="text-emerald-600" />
+            <span>Instalar</span>
+          </button>
+        )}
+
         <button
           onClick={onToggleHideValues}
           className="w-9 h-9 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-colors"
