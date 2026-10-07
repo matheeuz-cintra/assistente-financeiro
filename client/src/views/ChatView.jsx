@@ -224,11 +224,40 @@ export function ChatView({ onDataChanged }) {
                   </div>
                 )}
 
-                {/* Structured Metadata Card for Clarification Needed */}
+                {/* Structured Metadata Card for Clarification Needed (Category) */}
                 {m.metadata?.intent === 'clarification_needed' && (
                   <div className="mt-2 p-2 rounded-xl bg-amber-50 border border-amber-200 text-[11px] flex items-center gap-1.5 text-amber-900 font-medium">
                     <AlertTriangle size={14} className="text-amber-600" />
-                    Aguardando detalhes para registrar
+                    Aguardando detalhes da categoria para registrar
+                  </div>
+                )}
+
+                {/* Structured Metadata Card for Account Clarification Needed */}
+                {m.metadata?.intent === 'account_clarification_needed' && (
+                  <div className="mt-2.5 pt-2 border-t border-slate-100 space-y-2">
+                    <span className="text-[10px] font-semibold text-slate-500 block">
+                      Toque para escolher ou responda por voz/texto:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {m.metadata?.options?.map((opt, i) => {
+                        const optLower = opt.toLowerCase();
+                        const isCash = optLower.includes('dinheiro') || optLower.includes('carteira');
+                        const isCard = optLower.includes('cart') || optLower.includes('crédito');
+                        const isNu = optLower.includes('nubank');
+
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => handleSend(opt)}
+                            className="px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 text-slate-800 hover:text-emerald-900 font-semibold text-[11px] border border-slate-200/80 active:scale-95 transition-all flex items-center gap-1.5 shadow-2xs"
+                          >
+                            <span>{isNu ? '🟣' : isCash ? '💵' : isCard ? '💳' : '🏦'}</span>
+                            {opt}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>

@@ -102,9 +102,15 @@ export class AssistantService {
 
         const icon = data.categoryIcon || (data.type === 'income' ? '💰' : '🏷️');
         const catLabel = data.categoryName || 'Geral';
-        const cardNotice = created.credit_card_name ? ` no ${created.credit_card_name}` : '';
+        const accountObj = accounts.find(a => a.id === targetAccountId);
+        const cardObj = creditCards.find(c => c.id === targetCardId);
+        const accountNotice = cardObj 
+          ? ` • ${cardObj.name}` 
+          : accountObj 
+          ? ` • ${accountObj.name}` 
+          : '';
 
-        assistantResponse = `Registrado ${icon}\n${fmtBRL(created.amount)} • ${catLabel}${cardNotice}`;
+        assistantResponse = `Registrado ${icon}\n${fmtBRL(created.amount)} • ${catLabel}${accountNotice}`;
         responseMetadata = {
           intent: 'registered',
           transaction: created
@@ -112,7 +118,7 @@ export class AssistantService {
         break;
       }
 
-      // 2. AMBIGUIDADE DETECTADA
+      // 2. AMBIGUIDADE DETECTADA (CATEGORIA)
       case 'ambiguous_expense': {
         await this.setConversationContext(userId, null, 'clarify_category', parsed.data);
         assistantResponse = parsed.message;
@@ -120,6 +126,19 @@ export class AssistantService {
           intent: 'clarification_needed',
           type: parsed.data.type,
           amount: parsed.data.amount
+        };
+        break;
+      }
+
+      // 2.1 ESPECIFICAÇÃO DE CONTA OBRIGATÓRIA
+      case 'clarify_account': {
+        await this.setConversationContext(userId, null, 'clarify_account', parsed.data);
+        assistantResponse = parsed.message;
+        responseMetadata = {
+          intent: 'account_clarification_needed',
+          type: parsed.data.type,
+          amount: parsed.data.amount,
+          options: parsed.options || []
         };
         break;
       }

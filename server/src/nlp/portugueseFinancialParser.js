@@ -275,6 +275,10 @@ export function extractPaymentDetails(text, accounts = [], creditCards = []) {
       accountId = acc.id;
       break;
     }
+    if (acc.type === 'cash' && (norm.includes('dinheiro') || norm.includes('carteira') || norm.includes('especie'))) {
+      accountId = acc.id;
+      break;
+    }
   }
 
   return { paymentMethod, accountId, creditCardId };
@@ -349,22 +353,114 @@ export function parseFinancialInput(rawText, userContext = {}, userCategories = 
 
       const cat = extractCategory(text, userCategories);
       const desc = extractDescription(text, payload.type, cat ? cat.name : null);
+      const payment = extractPaymentDetails(text, userAccounts, userCards);
+
+      const updatedPayload = {
+        type: payload.type || 'expense',
+        amount: payload.amount,
+        categoryId: cat ? cat.id : null,
+        categoryName: cat ? cat.name : 'Outros',
+        categoryIcon: cat ? cat.icon : '📦',
+        description: desc || (cat ? cat.name : 'Despesa'),
+        date: payload.date || extractDate('hoje'),
+        paymentMethod: payment.paymentMethod !== 'nao_informado' ? payment.paymentMethod : (payload.paymentMethod || 'nao_informado'),
+        accountId: payment.accountId || payload.accountId || null,
+        creditCardId: payment.creditCardId || payload.creditCardId || null
+      };
+
+      // Se ainda não especificou a conta e tem contas cadastradas, pede a conta agora
+      if (!updatedPayload.accountId && !updatedPayload.creditCardId && userAccounts.length > 0) {
+        const options = [
+          ...userAccounts.map(a => a.name),
+          ...userCards.map(c => c.name)
+        ];
+        return {
+          intent: 'clarify_account',
+          data: updatedPayload,
+          options,
+          message: `Em qual conta ou cartão foi esse ${updatedPayload.type === 'income' ? 'recebimento' : 'gasto'}? (${options.join(', ')})`
+        };
+      }
 
       return {
         intent: 'register_transaction',
         isFollowUp: true,
-        data: {
-          type: payload.type || 'expense',
-          amount: payload.amount,
-          categoryId: cat ? cat.id : null,
-          categoryName: cat ? cat.name : 'Outros',
-          categoryIcon: cat ? cat.icon : '📦',
-          description: desc || (cat ? cat.name : 'Despesa'),
-          date: payload.date || extractDate('hoje'),
-          paymentMethod: payload.paymentMethod || 'nao_informado',
-          accountId: payload.accountId || null,
-          creditCardId: payload.creditCardId || null
+        data: updatedPayload
+      };
+    }
+
+    // Caso 1.3: O sistema estava esperando a conta ou cartão para o lançamento
+    if (userContext.pending_action === 'clarify_account' && userContext.pending_payload) {
+      const payload = typeof userContext.pending_payload === 'string'
+        ? JSON.parse(userContext.pending_payload)
+        : userContext.pending_payload;
+
+      const { paymentMethod, accountId, creditCardId } = extractPaymentDetails(text, userAccounts, userCards);
+
+      let targetAccountId = accountId;
+      let targetCardId = creditCardId;
+      let finalPaymentMethod = paymentMethod !== 'nao_informado' ? paymentMethod : payload.paymentMethod;
+
+      // Se não achou diretamente, busca por aproximação no texto
+      if (!targetAccountId && !targetCardId) {
+        const foundAcc = userAccounts.find(a => {
+          const aNorm = normalizeText(a.name);
+          const iNorm = normalizeText(a.institution);
+          return (
+            norm.includes(aNorm) ||
+            (iNorm.length > 2 && norm.includes(iNorm)) ||
+            (a.type === 'cash' && (norm.includes('dinheiro') || norm.includes('carteira') || norm.includes('especie')))
+          );
+        });
+
+        if (foundAcc) {
+          targetAccountId = foundAcc.id;
+          if (finalPaymentMethod === 'nao_informado') {
+            finalPaymentMethod = foundAcc.type === 'cash' ? 'dinheiro' : 'debito';
+          }
         }
+      }
+
+      if (!targetAccountId && !targetCardId) {
+        const foundCard = userCards.find(c => {
+          const cNorm = normalizeText(c.name);
+          const iNorm = normalizeText(c.institution);
+          return (
+            norm.includes(cNorm) ||
+            (iNorm.length > 2 && norm.includes(iNorm)) ||
+            norm.includes('cartao') || norm.includes('cartão') || norm.includes('credito') || norm.includes('crédito')
+          );
+        });
+
+        if (foundCard) {
+          targetCardId = foundCard.id;
+          finalPaymentMethod = 'credito';
+        }
+      }
+
+      if (targetAccountId || targetCardId) {
+        return {
+          intent: 'register_transaction',
+          isFollowUp: true,
+          data: {
+            ...payload,
+            accountId: targetAccountId,
+            creditCardId: targetCardId,
+            paymentMethod: finalPaymentMethod
+          }
+        };
+      }
+
+      const options = [
+        ...userAccounts.map(a => a.name),
+        ...userCards.map(c => c.name)
+      ];
+
+      return {
+        intent: 'clarify_account',
+        data: payload,
+        options,
+        message: `Não identifiquei essa conta. Por favor, escolha uma das suas opções: ${options.join(', ')}.`
       };
     }
 
@@ -641,6 +737,30 @@ export function parseFinancialInput(rawText, userContext = {}, userCategories = 
         creditCardId
       },
       message: `Posso registrar R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} como ${type === 'income' ? 'receita' : 'despesa'}. Qual foi a categoria ou com o que você gastou?`
+    };
+  }
+
+  // SEÇÃO NOVA: Se o valor foi informado, mas a conta/cartão não foi especificada
+  if (amount && !accountId && !creditCardId && userAccounts.length > 0) {
+    const options = [
+      ...userAccounts.map(a => a.name),
+      ...userCards.map(c => c.name)
+    ];
+
+    return {
+      intent: 'clarify_account',
+      data: {
+        type,
+        amount,
+        categoryId: category ? category.id : null,
+        categoryName: category ? category.name : (type === 'income' ? 'Outras Receitas' : 'Outros'),
+        categoryIcon: category ? category.icon : (type === 'income' ? '💰' : '📦'),
+        description,
+        date,
+        paymentMethod
+      },
+      options,
+      message: `Em qual conta ou forma de pagamento foi esse ${type === 'income' ? 'recebimento' : 'gasto'} de R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}? (${options.join(', ')})`
     };
   }
 
