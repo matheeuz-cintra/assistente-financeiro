@@ -339,6 +339,15 @@ router.post('/budgets', async (req, res) => {
   }
 });
 
+router.put('/budgets/:id', async (req, res) => {
+  try {
+    const result = await BudgetService.update(req.user.id, req.params.id, req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 router.delete('/budgets/:id', async (req, res) => {
   try {
     await BudgetService.delete(req.user.id, req.params.id);

@@ -33,6 +33,8 @@ export function MoreView({ onDataChanged }) {
 
   const [newBudgetCatId, setNewBudgetCatId] = useState('');
   const [newBudgetAmount, setNewBudgetAmount] = useState('');
+  const [editingBudgetId, setEditingBudgetId] = useState(null);
+  const [editingBudgetAmount, setEditingBudgetAmount] = useState('');
 
   const [newCatName, setNewCatName] = useState('');
   const [newCatIcon, setNewCatIcon] = useState('📦');
@@ -122,6 +124,25 @@ export function MoreView({ onDataChanged }) {
     });
     setNewBudgetAmount('');
     notifyChange();
+  };
+
+  const handleUpdateBudget = async (id, amount) => {
+    const val = parseFloat(amount);
+    if (isNaN(val) || val <= 0) {
+      alert('Por favor, informe um valor válido maior que zero.');
+      return;
+    }
+    await apiClient.updateBudget(id, { amount: val });
+    setEditingBudgetId(null);
+    notifyChange();
+  };
+
+  const handleDeleteBudget = async (id, catName) => {
+    if (confirm(`Remover o teto de orçamento para ${catName}?`)) {
+      await apiClient.deleteBudget(id);
+      if (editingBudgetId === id) setEditingBudgetId(null);
+      notifyChange();
+    }
   };
 
   const handleCreateCategory = async (e) => {
@@ -527,13 +548,29 @@ export function MoreView({ onDataChanged }) {
           <h2 className="text-base font-bold text-slate-800">Orçamentos Mensais</h2>
         </div>
 
-        {/* Form add budget */}
+        {/* Form add / update budget */}
         <form onSubmit={handleSetBudget} className="p-4 bg-white rounded-3xl border border-slate-100 shadow-xs space-y-3">
-          <span className="text-xs font-bold text-slate-800 block">Definir Teto de Gasto</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-800 block">
+              {budgets.some(b => b.category_id === newBudgetCatId) ? 'Atualizar Teto de Gasto' : 'Definir Teto de Gasto'}
+            </span>
+            {budgets.some(b => b.category_id === newBudgetCatId) && (
+              <span className="text-[10px] text-emerald-600 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md">
+                Já cadastrado
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <select
               value={newBudgetCatId}
-              onChange={(e) => setNewBudgetCatId(e.target.value)}
+              onChange={(e) => {
+                const catId = e.target.value;
+                setNewBudgetCatId(catId);
+                const existing = budgets.find(b => b.category_id === catId);
+                if (existing) {
+                  setNewBudgetAmount(String(existing.budget_amount));
+                }
+              }}
               className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-white focus:outline-none"
             >
               {categories.filter(c => c.type === 'expense').map((c) => (
@@ -554,38 +591,133 @@ export function MoreView({ onDataChanged }) {
           </div>
           <button
             type="submit"
-            className="w-full py-2.5 rounded-xl bg-emerald-600 text-white font-semibold text-xs flex items-center justify-center gap-1.5"
+            className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-semibold text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm"
           >
-            <Check size={14} /> Salvar Orçamento
+            <Check size={14} /> {budgets.some(b => b.category_id === newBudgetCatId) ? 'Atualizar Teto' : 'Salvar Orçamento'}
           </button>
         </form>
 
         {/* Budgets List */}
         <div className="bg-white rounded-3xl p-4 border border-slate-100 shadow-xs space-y-3">
-          <span className="text-xs font-bold text-slate-800 block">Tetos Definidos para este Mês</span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-800 block">Tetos Definidos para este Mês</span>
+            <span className="text-[10px] text-slate-400 font-medium">Toque no lápis para editar</span>
+          </div>
+
           <div className="space-y-3">
-            {budgets.map((b) => (
-              <div key={b.id} className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-xs space-y-1.5">
-                <div className="flex items-center justify-between font-bold">
-                  <span>{b.category_icon} {b.category_name}</span>
-                  <span>{fmtBRL(b.spent_amount)} / {fmtBRL(b.budget_amount)}</span>
+            {budgets.map((b) => {
+              const isEditing = editingBudgetId === b.id;
+
+              return (
+                <div
+                  key={b.id}
+                  className={`p-3.5 rounded-2xl border text-xs space-y-2 transition-all ${
+                    isEditing
+                      ? 'bg-emerald-50/60 border-emerald-400 ring-2 ring-emerald-500/20 shadow-sm'
+                      : 'bg-slate-50 border-slate-100 hover:border-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center justify-between font-bold">
+                    <span className="flex items-center gap-1.5 text-slate-800">
+                      <span>{b.category_icon}</span> {b.category_name}
+                    </span>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-700">
+                        {fmtBRL(b.spent_amount)} / <strong className="text-emerald-700">{fmtBRL(b.budget_amount)}</strong>
+                      </span>
+
+                      {!isEditing && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingBudgetId(b.id);
+                              setEditingBudgetAmount(String(b.budget_amount));
+                            }}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+                            title="Editar valor do teto"
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteBudget(b.id, b.category_name)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                            title="Excluir teto"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {isEditing ? (
+                    <div className="pt-1.5 space-y-2">
+                      <div className="flex items-center justify-between text-[11px] font-semibold text-emerald-800">
+                        <span>Alterar teto de {b.category_name}:</span>
+                        <span className="text-[10px] text-slate-400">Atual: {fmtBRL(b.budget_amount)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">R$</span>
+                          <input
+                            type="number"
+                            step="10"
+                            min="1"
+                            value={editingBudgetAmount}
+                            onChange={(e) => setEditingBudgetAmount(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleUpdateBudget(b.id, editingBudgetAmount);
+                              } else if (e.key === 'Escape') {
+                                setEditingBudgetId(null);
+                              }
+                            }}
+                            placeholder="Novo teto"
+                            autoFocus
+                            className="w-full pl-9 pr-3 py-2 rounded-xl border border-emerald-400 bg-white text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-inner"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateBudget(b.id, editingBudgetAmount)}
+                          className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs flex items-center gap-1 shadow-sm transition-all"
+                        >
+                          <Check size={14} /> Salvar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingBudgetId(null)}
+                          className="px-3 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 active:scale-95 text-slate-700 font-semibold text-xs transition-all"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            b.status === 'danger' ? 'bg-rose-500' : b.status === 'warning' ? 'bg-amber-500' : 'bg-emerald-500'
+                          }`}
+                          style={{ width: `${Math.min(100, b.percentage_used)}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-slate-500">
+                        <span>{b.percentage_used}% utilizado</span>
+                        <span className={`font-semibold ${b.status === 'danger' ? 'text-rose-600 font-bold' : 'text-slate-600'}`}>
+                          {b.status === 'danger' ? 'Limite estourado!' : `Restam ${fmtBRL(Math.max(0, b.remaining_amount))}`}
+                        </span>
+                      </div>
+                    </>
+                  )}
                 </div>
-                <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${
-                      b.status === 'danger' ? 'bg-rose-500' : b.status === 'warning' ? 'bg-amber-500' : 'bg-emerald-500'
-                    }`}
-                    style={{ width: `${Math.min(100, b.percentage_used)}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-between text-[10px] text-slate-500">
-                  <span>{b.percentage_used}% utilizado</span>
-                  <span className="text-rose-600 font-semibold">
-                    {b.status === 'danger' ? 'Limite estourado!' : `Restam ${fmtBRL(Math.max(0, b.remaining_amount))}`}
-                  </span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

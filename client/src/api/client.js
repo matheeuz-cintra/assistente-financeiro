@@ -242,6 +242,14 @@ export const apiClient = {
     return this.request('/budgets', { method: 'POST', body: data });
   },
 
+  updateBudget(id, data) {
+    return this.request(`/budgets/${id}`, { method: 'PUT', body: data });
+  },
+
+  deleteBudget(id) {
+    return this.request(`/budgets/${id}`, { method: 'DELETE' });
+  },
+
   // Recurring
   getRecurring() {
     return this.request('/recurring');

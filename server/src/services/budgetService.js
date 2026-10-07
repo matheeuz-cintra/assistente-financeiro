@@ -79,6 +79,15 @@ export class BudgetService {
     }
   }
 
+  static async update(userId, id, { amount }) {
+    const budgetAmount = Math.abs(parseFloat(amount) || 0);
+    await execute(
+      'UPDATE budgets SET amount = ? WHERE id = ? AND user_id = ?',
+      [budgetAmount, id, userId]
+    );
+    return { id, amount: budgetAmount, updated: true };
+  }
+
   static async delete(userId, id) {
     return await execute('DELETE FROM budgets WHERE id = ? AND user_id = ?', [id, userId]);
   }
