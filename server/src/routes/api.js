@@ -52,6 +52,13 @@ router.post('/auth/login', async (req, res) => {
     const result = await AuthService.login(email, password);
     res.json(result);
   } catch (err) {
+    if (err.code === 'PENDING_VERIFICATION') {
+      return res.status(403).json({
+        error: err.message,
+        requiresVerification: true,
+        email: req.body.email
+      });
+    }
     res.status(401).json({ error: err.message });
   }
 });

@@ -62,7 +62,18 @@ export function LoginView() {
         await login(email.trim(), password);
       }
     } catch (err) {
-      setError(err.message || 'Erro ao realizar login');
+      if (err.requiresVerification) {
+        setStep('verify');
+        setResendCooldown(30);
+        setCanResend(false);
+        setOtp(['', '', '', '', '', '']);
+        setInfoMessage('Seu cadastro está pendente de validação. Digite o código de 6 dígitos enviado por e-mail ou clique em reenviar.');
+        setTimeout(() => {
+          otpInputsRef.current[0]?.focus();
+        }, 150);
+      } else {
+        setError(err.message || 'Erro ao realizar login');
+      }
     } finally {
       setLoading(false);
     }

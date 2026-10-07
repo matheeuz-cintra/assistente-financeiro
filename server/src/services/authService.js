@@ -198,12 +198,24 @@ export class AuthService {
     const cleanEmail = email.toLowerCase().trim();
     const user = await queryOne('SELECT * FROM users WHERE email = ?', [cleanEmail]);
     if (!user) {
-      throw new Error('Credenciais inválidas');
+      const pending = await queryOne('SELECT * FROM email_verifications WHERE email = ?', [cleanEmail]);
+      if (pending) {
+        if (pending.password_hash) {
+          const isPwdValid = bcrypt.compareSync(password, pending.password_hash);
+          if (!isPwdValid) {
+            throw new Error('E-mail ou senha incorretos');
+          }
+        }
+        const err = new Error('Seu cadastro ainda não foi ativado. Digite o código de 6 dígitos enviado para o seu e-mail.');
+        err.code = 'PENDING_VERIFICATION';
+        throw err;
+      }
+      throw new Error('E-mail ou senha incorretos');
     }
 
     const isValid = bcrypt.compareSync(password, user.password_hash);
     if (!isValid) {
-      throw new Error('Credenciais inválidas');
+      throw new Error('E-mail ou senha incorretos');
     }
 
     const token = jwt.sign(

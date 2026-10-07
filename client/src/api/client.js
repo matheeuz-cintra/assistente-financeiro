@@ -47,16 +47,27 @@ export const apiClient = {
     const response = await fetch(`${API_BASE}${endpoint}`, config);
 
     if (response.status === 401) {
-      // Clear token if expired
+      const errData = await response.json().catch(() => ({}));
+      // If authenticating, 401 indicates invalid credentials, NOT an expired token
+      if (endpoint.startsWith('/auth/')) {
+        const err = new Error(errData.error || 'E-mail ou senha incorretos.');
+        err.status = 401;
+        throw err;
+      }
+
+      // Clear token if expired for authenticated endpoints
       this.setToken(null);
       this.setUser(null);
       window.dispatchEvent(new Event('auth_expired'));
-      throw new Error('Sessão expirada. Faça login novamente.');
+      throw new Error(errData.error || 'Sessão expirada. Faça login novamente.');
     }
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.error || `Erro ${response.status}: ${response.statusText}`);
+      const err = new Error(errData.error || `Erro ${response.status}: ${response.statusText}`);
+      err.status = response.status;
+      err.requiresVerification = errData.requiresVerification;
+      throw err;
     }
 
     // If downloading a file
