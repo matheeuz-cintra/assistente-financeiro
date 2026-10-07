@@ -129,6 +129,40 @@ export class ReportService {
       });
     }
 
+    // 10. Accounts with individual balances and month summary
+    const accountsRaw = await queryAll(
+      `SELECT * FROM accounts WHERE user_id = ? AND active = 1 ORDER BY created_at ASC`,
+      [userId]
+    );
+    const accounts = [];
+    for (const acc of accountsRaw) {
+      const accIncomeRow = await queryOne(
+        `SELECT COALESCE(SUM(amount), 0) as income
+         FROM transactions
+         WHERE user_id = ? AND account_id = ? AND type = 'income'
+           AND strftime('%Y-%m', transaction_date) = ?`,
+        [userId, acc.id, monthKey]
+      );
+      const accExpenseRow = await queryOne(
+        `SELECT COALESCE(SUM(amount), 0) as expense
+         FROM transactions
+         WHERE user_id = ? AND account_id = ? AND type = 'expense'
+           AND strftime('%Y-%m', transaction_date) = ?`,
+        [userId, acc.id, monthKey]
+      );
+      const accIncome = accIncomeRow ? parseFloat(accIncomeRow.income) : 0;
+      const accExpense = accExpenseRow ? parseFloat(accExpenseRow.expense) : 0;
+
+      accounts.push({
+        ...acc,
+        current_balance: parseFloat(acc.current_balance) || 0,
+        initial_balance: parseFloat(acc.initial_balance) || 0,
+        monthIncome: accIncome,
+        monthExpense: accExpense,
+        monthResult: accIncome - accExpense
+      });
+    }
+
     return {
       period: { month: targetMonth, year: targetYear, monthKey },
       balance: {
@@ -138,6 +172,7 @@ export class ReportService {
         monthResult,
         todayExpense
       },
+      accounts,
       categories: categoriesWithPercent,
       recentTransactions,
       upcomingBills,

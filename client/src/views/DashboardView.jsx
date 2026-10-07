@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowDownRight, ArrowUpRight, ArrowLeftRight, TrendingUp, 
-  CreditCard, Calendar, AlertCircle, ChevronRight, Mic, Sparkles, RefreshCw
+  CreditCard, Calendar, AlertCircle, ChevronRight, ChevronLeft, Mic, Sparkles, RefreshCw, Wallet
 } from 'lucide-react';
 import { apiClient } from '../api/client.js';
 
@@ -16,6 +16,8 @@ export function DashboardView({
   const [budgets, setBudgets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const scrollContainerRef = useRef(null);
+  const [activeCardIndex, setActiveCardIndex] = useState(0);
 
   useEffect(() => {
     loadDashboard();
@@ -42,6 +44,27 @@ export function DashboardView({
     loadDashboard();
   };
 
+  const handleScroll = () => {
+    if (!scrollContainerRef.current) return;
+    const { scrollLeft, clientWidth } = scrollContainerRef.current;
+    if (clientWidth > 0) {
+      const newIndex = Math.round(scrollLeft / clientWidth);
+      if (newIndex !== activeCardIndex && newIndex >= 0) {
+        setActiveCardIndex(newIndex);
+      }
+    }
+  };
+
+  const scrollToIndex = (index) => {
+    if (!scrollContainerRef.current) return;
+    const width = scrollContainerRef.current.clientWidth;
+    scrollContainerRef.current.scrollTo({
+      left: index * width,
+      behavior: 'smooth'
+    });
+    setActiveCardIndex(index);
+  };
+
   const fmtBRL = (val) => {
     if (hideValues) return '••••••';
     return (val || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -56,53 +79,178 @@ export function DashboardView({
     );
   }
 
-  const { balance, categories, recentTransactions, upcomingBills, creditCards } = data || {};
+  const { balance, categories, recentTransactions, upcomingBills, creditCards, accounts } = data || {};
+
+  // Build the list of cards: individual bank accounts first, followed by consolidated total
+  const accountCards = [];
+  if (accounts && accounts.length > 0) {
+    accounts.forEach((acc) => {
+      const nameLower = (acc.name || '').toLowerCase();
+      const instLower = (acc.institution || '').toLowerCase();
+      const isNu = instLower.includes('nubank') || nameLower.includes('nubank');
+      const isCash = acc.type === 'cash' || nameLower.includes('dinheiro') || instLower.includes('dinheiro');
+      const isInter = instLower.includes('inter') || nameLower.includes('inter');
+
+      accountCards.push({
+        id: acc.id,
+        isTotal: false,
+        name: acc.name,
+        institution: acc.institution,
+        type: acc.type,
+        balance: acc.current_balance,
+        monthIncome: acc.monthIncome || 0,
+        monthExpense: acc.monthExpense || 0,
+        monthResult: acc.monthResult || 0,
+        badge: acc.institution || (acc.type === 'cash' ? 'Dinheiro' : 'Conta'),
+        badgeIcon: isNu ? '🟣' : isCash ? '💵' : isInter ? '🟠' : '💳',
+        glowColor: isNu ? 'bg-purple-500/25' : isCash ? 'bg-emerald-500/25' : isInter ? 'bg-orange-500/25' : 'bg-emerald-500/20'
+      });
+    });
+  }
+
+  // Also include the consolidated total card
+  accountCards.push({
+    id: 'total-consolidated',
+    isTotal: true,
+    name: 'Saldo Geral Consolidado',
+    institution: 'Todas as Contas',
+    type: 'all',
+    balance: balance?.total || 0,
+    monthIncome: balance?.monthIncome || 0,
+    monthExpense: balance?.monthExpense || 0,
+    monthResult: balance?.monthResult || 0,
+    badge: 'Visão Geral',
+    badgeIcon: '🌐',
+    glowColor: 'bg-teal-500/25'
+  });
 
   return (
     <div className="flex-1 pb-24 px-4 pt-3 space-y-4 animate-in fade-in duration-200">
-      {/* 1. Main Balance Hero Card */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white rounded-3xl p-5 shadow-xl relative overflow-hidden">
-        {/* Subtle decorative glow */}
-        <div className="absolute -top-12 -right-12 w-36 h-36 bg-emerald-500/20 rounded-full blur-2xl pointer-events-none" />
+      {/* 1. Main Balance Multi-Account Swipeable Carousel */}
+      <div className="space-y-2">
+        <div 
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none rounded-3xl"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {accountCards.map((card, idx) => (
+            <div
+              key={card.id || idx}
+              className="w-full shrink-0 snap-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white rounded-3xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[195px]"
+            >
+              {/* Subtle decorative glow */}
+              <div className={`absolute -top-12 -right-12 w-40 h-40 ${card.glowColor || 'bg-emerald-500/20'} rounded-full blur-2xl pointer-events-none`} />
 
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-slate-400">Saldo Total Disponível</span>
-          <button 
-            onClick={handleRefresh}
-            className="text-slate-400 hover:text-white transition-colors p-1"
-            title="Atualizar dados"
-          >
-            <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-          </button>
+              {/* Card Header */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-white/10 text-slate-200 border border-white/10 flex items-center gap-1">
+                      <span>{card.badgeIcon}</span> {card.badge}
+                    </span>
+                    <span className="text-xs font-bold text-white truncate max-w-[150px]">
+                      {card.name}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    {accountCards.length > 1 && (
+                      <span className="text-[10px] text-slate-400 font-medium px-1.5 py-0.5 rounded-md bg-black/30 mr-1">
+                        {idx + 1}/{accountCards.length}
+                      </span>
+                    )}
+
+                    {accountCards.length > 1 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => scrollToIndex(Math.max(0, idx - 1))}
+                          disabled={idx === 0}
+                          className="text-slate-400 hover:text-white disabled:opacity-20 p-1 transition-colors"
+                          title="Conta anterior"
+                        >
+                          <ChevronLeft size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => scrollToIndex(Math.min(accountCards.length - 1, idx + 1))}
+                          disabled={idx === accountCards.length - 1}
+                          className="text-slate-400 hover:text-white disabled:opacity-20 p-1 transition-colors"
+                          title="Próxima conta"
+                        >
+                          <ChevronRight size={14} />
+                        </button>
+                      </>
+                    )}
+
+                    <button 
+                      type="button"
+                      onClick={handleRefresh}
+                      className="text-slate-400 hover:text-white transition-colors p-1 ml-0.5"
+                      title="Atualizar dados"
+                    >
+                      <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Balance Amount */}
+                <div className="mt-2.5 mb-3.5">
+                  <span className="text-[11px] text-slate-400 font-medium block">
+                    {card.isTotal ? 'Saldo Total Disponível' : `Saldo Disponível em ${card.name}`}
+                  </span>
+                  <h2 className="text-3xl font-extrabold tracking-tight text-white mt-0.5">
+                    {fmtBRL(card.balance)}
+                  </h2>
+                </div>
+              </div>
+
+              {/* Month Summary Grid */}
+              <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-700/60">
+                <div>
+                  <span className="text-[10px] text-slate-400 font-medium block">Receitas</span>
+                  <span className="text-xs font-bold text-emerald-400 block mt-0.5 truncate">
+                    +{fmtBRL(card.monthIncome)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-medium block">Despesas</span>
+                  <span className="text-xs font-bold text-rose-400 block mt-0.5 truncate">
+                    -{fmtBRL(card.monthExpense)}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-medium block">Resultado</span>
+                  <span className={`text-xs font-bold block mt-0.5 truncate ${
+                    (card.monthResult || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                  }`}>
+                    {(card.monthResult || 0) >= 0 ? '+' : ''}{fmtBRL(card.monthResult)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
 
-        <h2 className="text-3xl font-extrabold tracking-tight mt-1 mb-4 text-white">
-          {fmtBRL(balance?.total)}
-        </h2>
-
-        {/* Month Summary Grid */}
-        <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-700/60">
-          <div>
-            <span className="text-[10px] text-slate-400 font-medium block">Receitas</span>
-            <span className="text-xs font-bold text-emerald-400 block mt-0.5 truncate">
-              +{fmtBRL(balance?.monthIncome)}
-            </span>
+        {/* Carousel Pagination Dots */}
+        {accountCards.length > 1 && (
+          <div className="flex items-center justify-center gap-1.5 pt-1">
+            {accountCards.map((c, i) => (
+              <button
+                key={c.id || i}
+                type="button"
+                onClick={() => scrollToIndex(i)}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  activeCardIndex === i 
+                    ? 'w-6 bg-emerald-500' 
+                    : 'w-1.5 bg-slate-300 hover:bg-slate-400'
+                }`}
+                title={`Ver ${c.name}`}
+              />
+            ))}
           </div>
-          <div>
-            <span className="text-[10px] text-slate-400 font-medium block">Despesas</span>
-            <span className="text-xs font-bold text-rose-400 block mt-0.5 truncate">
-              -{fmtBRL(balance?.monthExpense)}
-            </span>
-          </div>
-          <div>
-            <span className="text-[10px] text-slate-400 font-medium block">Resultado</span>
-            <span className={`text-xs font-bold block mt-0.5 truncate ${
-              (balance?.monthResult || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
-            }`}>
-              {(balance?.monthResult || 0) >= 0 ? '+' : ''}{fmtBRL(balance?.monthResult)}
-            </span>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* 2. Natural Voice & Text Assistant Banner */}
