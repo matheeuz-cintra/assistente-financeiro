@@ -6,6 +6,8 @@ import { QuickAddModal } from './components/QuickAddModal.jsx';
 import { TransactionDetailModal } from './components/TransactionDetailModal.jsx';
 import { ImportStatementModal } from './components/ImportStatementModal.jsx';
 import { InstallAppModal } from './components/InstallAppModal.jsx';
+import { NotificationsModal } from './components/NotificationsModal.jsx';
+import { ScheduledPaymentsModal } from './components/ScheduledPaymentsModal.jsx';
 import { DashboardView } from './views/DashboardView.jsx';
 import { ChatView } from './views/ChatView.jsx';
 import { HistoryView } from './views/HistoryView.jsx';
@@ -21,6 +23,8 @@ function MainApp() {
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [isInstallOpen, setIsInstallOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isScheduledPaymentsOpen, setIsScheduledPaymentsOpen] = useState(false);
   const [importAccountId, setImportAccountId] = useState(null);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [dataVersion, setDataVersion] = useState(0);
@@ -60,6 +64,7 @@ function MainApp() {
           onToggleHideValues={() => setHideValues((v) => !v)}
           onOpenMore={() => setActiveTab('more')}
           onOpenInstall={() => setIsInstallOpen(true)}
+          onOpenNotifications={() => setIsNotificationsOpen(true)}
         />
       )}
 
@@ -75,6 +80,7 @@ function MainApp() {
             onOpenAssistant={() => setActiveTab('chat')}
             onSelectTransaction={(tx) => setSelectedTransaction(tx)}
             onNavigateTab={(tab) => setActiveTab(tab)}
+            onOpenScheduledPayments={() => setIsScheduledPaymentsOpen(true)}
           />
         )}
 
@@ -100,6 +106,7 @@ function MainApp() {
             onDataChanged={handleDataChanged} 
             onOpenImport={handleOpenImport}
             onOpenInstall={() => setIsInstallOpen(true)}
+            onOpenScheduledPayments={() => setIsScheduledPaymentsOpen(true)}
           />
         )}
       </main>
@@ -131,6 +138,21 @@ function MainApp() {
       <InstallAppModal
         isOpen={isInstallOpen}
         onClose={() => setIsInstallOpen(false)}
+      />
+
+      {/* Notifications & Reminders Modal */}
+      <NotificationsModal
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+        onDataChanged={handleDataChanged}
+        onOpenScheduledPayments={() => setIsScheduledPaymentsOpen(true)}
+      />
+
+      {/* Scheduled Payments (Contas a Pagar) Manager Modal */}
+      <ScheduledPaymentsModal
+        isOpen={isScheduledPaymentsOpen}
+        onClose={() => setIsScheduledPaymentsOpen(false)}
+        onDataChanged={handleDataChanged}
       />
 
       {/* Transaction Detail & Edit Modal */}

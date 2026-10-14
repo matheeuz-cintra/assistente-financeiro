@@ -7,6 +7,7 @@ import { config } from './config/index.js';
 import { initDatabase, isPostgres } from './db/database.js';
 import { seedDemoDataIfEmpty } from './db/seed.js';
 import { router as apiRouter } from './routes/api.js';
+import { ScheduledPaymentService } from './services/scheduledPaymentService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,19 +21,48 @@ try {
   console.error('Erro ao inicializar banco de dados:', err);
 }
 
+// Background Payment Checker state
+let lastScheduledCheck = 0;
+const CHECK_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+
+async function runScheduledPaymentsCheck() {
+  const now = Date.now();
+  if (now - lastScheduledCheck < 10 * 60 * 1000) return; // Debounce minimum 10 min
+  lastScheduledCheck = now;
+  try {
+    await ScheduledPaymentService.checkDueAndNotifyAll();
+  } catch (err) {
+    console.error('Erro ao verificar pagamentos agendados:', err);
+  }
+}
+
+// Initial check 5 seconds after startup
+setTimeout(() => {
+  runScheduledPaymentsCheck();
+}, 5000);
+
+// Recurring periodic check every 30 minutes
+setInterval(() => {
+  runScheduledPaymentsCheck();
+}, CHECK_INTERVAL_MS);
+
 // 2. Setup Express App
 const app = express();
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// API Health Check
+// API Health Check (triggers check if interval elapsed, ensuring execution even on serverless wakeups)
 app.get('/api/health', (req, res) => {
+  if (Date.now() - lastScheduledCheck >= CHECK_INTERVAL_MS) {
+    runScheduledPaymentsCheck().catch(() => {});
+  }
   res.json({
     status: 'ok',
     app: 'Assistente Financeiro',
     database: isPostgres ? 'supabase-postgresql' : 'sqlite',
     version: '1.0.0',
+    lastScheduledCheck: lastScheduledCheck ? new Date(lastScheduledCheck).toISOString() : null,
     timestamp: new Date().toISOString()
   });
 });

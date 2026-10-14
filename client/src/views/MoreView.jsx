@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Wallet, CreditCard, Calendar, Target, Tags, KeyRound, 
-  LogOut, Plus, ChevronRight, Check, X, Trash2, Edit2, ShieldCheck, Download, FileSpreadsheet, UploadCloud, Smartphone
+  LogOut, Plus, ChevronRight, Check, X, Trash2, Edit2, ShieldCheck, Download, FileSpreadsheet, UploadCloud, Smartphone, Clock
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { apiClient } from '../api/client.js';
 
-export function MoreView({ onDataChanged, onOpenImport, onOpenInstall }) {
+export function MoreView({ onDataChanged, onOpenImport, onOpenInstall, onOpenScheduledPayments }) {
   const { user, logout } = useAuth();
   const [section, setSection] = useState('menu'); // 'menu', 'accounts', 'cards', 'recurring', 'budgets', 'categories', 'settings'
 
@@ -265,6 +265,26 @@ export function MoreView({ onDataChanged, onOpenImport, onOpenInstall }) {
               <div className="text-left">
                 <span className="font-bold text-slate-800 block">Cartões de Crédito</span>
                 <span className="text-[11px] text-slate-400">{cards.length} cartões cadastrados</span>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-slate-400" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onOpenScheduledPayments?.()}
+            className="w-full p-4 flex items-center justify-between hover:bg-amber-50/40 transition-colors bg-gradient-to-r from-amber-50/30 via-slate-50/20 to-transparent"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center border border-amber-500/20">
+                <Clock size={16} />
+              </div>
+              <div className="text-left">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-slate-800 block">Pagamentos Agendados</span>
+                  <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-800">Contas a Pagar</span>
+                </div>
+                <span className="text-[11px] text-slate-400">Lembretes automáticos com confirmação manual</span>
               </div>
             </div>
             <ChevronRight size={16} className="text-slate-400" />

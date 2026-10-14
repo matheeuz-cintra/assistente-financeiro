@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowDownRight, ArrowUpRight, ArrowLeftRight, TrendingUp, 
   CreditCard, Calendar, AlertCircle, ChevronRight, ChevronLeft, Mic, Sparkles, RefreshCw, Wallet,
-  FileSpreadsheet, UploadCloud
+  FileSpreadsheet, UploadCloud, Check, Ban, Clock, ShieldAlert, Plus
 } from 'lucide-react';
 import { apiClient } from '../api/client.js';
 
@@ -12,12 +12,15 @@ export function DashboardView({
   onOpenImport,
   onOpenAssistant, 
   onSelectTransaction, 
-  onNavigateTab 
+  onNavigateTab,
+  onOpenScheduledPayments
 }) {
   const [data, setData] = useState(null);
   const [budgets, setBudgets] = useState([]);
+  const [scheduledPayments, setScheduledPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState(null);
   const scrollContainerRef = useRef(null);
   const [activeCardIndex, setActiveCardIndex] = useState(0);
 
@@ -27,17 +30,52 @@ export function DashboardView({
 
   const loadDashboard = async () => {
     try {
-      const [dash, bList] = await Promise.all([
+      const [dash, bList, schedList] = await Promise.all([
         apiClient.getDashboard(),
-        apiClient.getBudgets()
+        apiClient.getBudgets(),
+        apiClient.getScheduledPayments({ status: 'pending' }).catch(() => [])
       ]);
       setData(dash);
       setBudgets(bList);
+      setScheduledPayments(schedList || []);
     } catch (err) {
       console.error('Error loading dashboard:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const handleConfirmPayment = async (item) => {
+    const accName = item.account_name || 'sua conta';
+    if (!confirm(`Confirmar o pagamento de ${fmtBRL(item.amount)} (${item.description}) agora?\n\nO valor será registrado como despesa e debitado do saldo da conta ${accName}.`)) {
+      return;
+    }
+    setActionLoadingId(item.id);
+    try {
+      await apiClient.confirmScheduledPayment(item.id);
+      alert(`✅ Pagamento confirmado com sucesso! Saldo debitado de ${accName}.`);
+      loadDashboard();
+    } catch (err) {
+      alert(err.message || 'Erro ao confirmar pagamento.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleCancelPayment = async (item) => {
+    if (!confirm(`Cancelar o agendamento de ${fmtBRL(item.amount)} (${item.description})?\n\nNENHUM valor será debitado da sua conta.`)) {
+      return;
+    }
+    setActionLoadingId(item.id);
+    try {
+      await apiClient.cancelScheduledPayment(item.id, 'Cancelado pelo usuário');
+      alert('🚫 Agendamento cancelado. Nenhum valor foi debitado.');
+      loadDashboard();
+    } catch (err) {
+      alert(err.message || 'Erro ao cancelar agendamento.');
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
@@ -270,6 +308,72 @@ export function DashboardView({
           </div>
         )}
       </div>
+
+      {/* Urgent Alert Banner for Due Today / Overdue Scheduled Payments */}
+      {scheduledPayments.some((p) => p.isDueToday || p.isOverdue) && (
+        <div className="bg-gradient-to-r from-rose-950/95 via-slate-900 to-amber-950/95 border-2 border-rose-500/60 rounded-3xl p-4 text-white shadow-lg shadow-rose-950/30 space-y-3 animate-fade-in notranslate" translate="no">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+              <span className="text-[11px] font-black uppercase tracking-wider text-rose-400 flex items-center gap-1">
+                <AlertCircle size={14} /> Pagamento Vence Hoje!
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => onOpenScheduledPayments?.()}
+              className="text-[11px] font-bold text-amber-300 hover:underline flex items-center gap-0.5"
+            >
+              <span>Ver agendamentos</span>
+              <ChevronRight size={13} />
+            </button>
+          </div>
+
+          {scheduledPayments.filter((p) => p.isDueToday || p.isOverdue).slice(0, 2).map((item) => (
+            <div key={item.id} className="p-3 rounded-2xl bg-black/40 border border-rose-500/30 space-y-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-white block">{item.description}</span>
+                  <span className="text-[10px] text-slate-300 block">
+                    Conta: <strong className="text-white">{item.account_name}</strong>
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-sm font-extrabold text-rose-400 block">{fmtBRL(item.amount)}</span>
+                  <span className="text-[9px] font-extrabold text-rose-300 uppercase px-1.5 py-0.2 rounded-md bg-rose-500/20 inline-block">
+                    {item.isDueToday ? 'Vence Hoje' : 'Vencido'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-slate-300">
+                Você já realizou este pagamento?
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  disabled={actionLoadingId === item.id}
+                  onClick={() => handleConfirmPayment(item)}
+                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-[11px] font-bold flex items-center gap-1 shadow-sm transition-all disabled:opacity-50"
+                >
+                  <Check size={13} />
+                  <span>Sim, Confirmar Pagamento</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={actionLoadingId === item.id}
+                  onClick={() => handleCancelPayment(item)}
+                  className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-900/40 text-slate-300 hover:text-rose-300 text-[11px] font-semibold flex items-center gap-1 transition-all border border-slate-700 disabled:opacity-50"
+                >
+                  <Ban size={12} />
+                  <span>Cancelar</span>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* 2. Natural Voice & Text Assistant Banner */}
       <div 
@@ -525,6 +629,94 @@ export function DashboardView({
           </div>
         </div>
       )}
+
+      {/* Contas a Pagar / Pagamentos Agendados */}
+      <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs notranslate" translate="no">
+        <div className="flex items-center justify-between mb-3.5">
+          <div>
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-sm font-bold text-slate-800">Contas a Pagar</h3>
+              {scheduledPayments.length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-amber-500/15 text-amber-700 border border-amber-500/30">
+                  {scheduledPayments.length} agendada{scheduledPayments.length > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            <span className="text-[11px] text-slate-400">Lembretes com confirmação manual</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => onOpenScheduledPayments?.()}
+            className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center"
+          >
+            Gerenciar <ChevronRight size={14} />
+          </button>
+        </div>
+
+        {scheduledPayments.length === 0 ? (
+          <div className="text-center py-5 px-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
+            <span className="text-xs text-slate-500 block">Nenhum pagamento agendado no momento.</span>
+            <button
+              type="button"
+              onClick={() => onOpenScheduledPayments?.()}
+              className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold transition-all border border-emerald-200"
+            >
+              + Agendar Pagamento
+            </button>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {scheduledPayments.slice(0, 4).map((p) => {
+              const isToday = p.isDueToday;
+              const isOverdue = p.isOverdue;
+              return (
+                <div key={p.id} className="py-3 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className="w-9 h-9 rounded-2xl flex items-center justify-center text-base shrink-0 shadow-xs"
+                      style={{ backgroundColor: `${p.category_color || '#64748b'}20` }}
+                    >
+                      {p.category_icon || '📅'}
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-slate-800 block truncate">{p.description}</span>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-[10px] text-slate-400">Conta: <strong className="text-slate-600">{p.account_name}</strong></span>
+                        <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded-md ${
+                          isToday
+                            ? 'bg-rose-100 text-rose-700 animate-pulse'
+                            : isOverdue
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {isToday ? 'Vence Hoje' : isOverdue ? 'Vencido' : `Faltam ${p.daysDiff}d`}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0 flex items-center gap-2">
+                    <div>
+                      <span className="text-xs font-extrabold text-slate-800 block">{fmtBRL(p.amount)}</span>
+                      <span className="text-[10px] text-slate-400">{p.due_date?.slice(5)}</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={actionLoadingId === p.id}
+                      onClick={() => handleConfirmPayment(p)}
+                      className="w-7 h-7 rounded-xl bg-emerald-500/10 hover:bg-emerald-500 text-emerald-600 hover:text-white flex items-center justify-center transition-all disabled:opacity-50"
+                      title="Confirmar pagamento realizado"
+                    >
+                      <Check size={14} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* 7. Próximos Pagamentos / Recorrências */}
       {upcomingBills && upcomingBills.length > 0 && (

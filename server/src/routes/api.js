@@ -11,6 +11,8 @@ import { RecurringService } from '../services/recurringService.js';
 import { ReportService } from '../services/reportService.js';
 import { AssistantService } from '../services/assistantService.js';
 import { StatementImportService } from '../services/statementImportService.js';
+import { ScheduledPaymentService } from '../services/scheduledPaymentService.js';
+import { NotificationService } from '../services/notificationService.js';
 
 export const router = express.Router();
 
@@ -478,3 +480,133 @@ router.post('/import/confirm', async (req, res) => {
     res.status(400).json({ error: err.message });
   }
 });
+
+// -------------------------------------------------------------
+// SCHEDULED PAYMENTS (CONTAS A PAGAR / AGENDAMENTOS)
+// -------------------------------------------------------------
+router.get('/scheduled-payments', async (req, res) => {
+  try {
+    const list = await ScheduledPaymentService.list(req.user.id, {
+      status: req.query.status
+    });
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/scheduled-payments', async (req, res) => {
+  try {
+    const created = await ScheduledPaymentService.create(req.user.id, req.body);
+    res.json(created);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.get('/scheduled-payments/:id', async (req, res) => {
+  try {
+    const item = await ScheduledPaymentService.getById(req.user.id, req.params.id);
+    if (!item) return res.status(404).json({ error: 'Pagamento agendado não encontrado.' });
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/scheduled-payments/:id/confirm', async (req, res) => {
+  try {
+    const result = await ScheduledPaymentService.confirmPayment(req.user.id, req.params.id, {
+      paidDate: req.body?.paidDate
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/scheduled-payments/:id/cancel', async (req, res) => {
+  try {
+    const result = await ScheduledPaymentService.cancelPayment(req.user.id, req.params.id, req.body?.reason);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.put('/scheduled-payments/:id', async (req, res) => {
+  try {
+    const updated = await ScheduledPaymentService.update(req.user.id, req.params.id, req.body);
+    res.json(updated);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.delete('/scheduled-payments/:id', async (req, res) => {
+  try {
+    const result = await ScheduledPaymentService.delete(req.user.id, req.params.id);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/scheduled-payments/check-notifications', async (req, res) => {
+  try {
+    const result = await ScheduledPaymentService.checkDueAndNotifyAll();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// IN-APP NOTIFICATIONS
+// -------------------------------------------------------------
+router.get('/notifications', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit, 10) || 50;
+    const notifications = await NotificationService.list(req.user.id, limit);
+    res.json(notifications);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/notifications/unread-count', async (req, res) => {
+  try {
+    const count = await NotificationService.getUnreadCount(req.user.id);
+    res.json({ count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/notifications/:id/read', async (req, res) => {
+  try {
+    const result = await NotificationService.markAsRead(req.user.id, req.params.id);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/notifications/read-all', async (req, res) => {
+  try {
+    const result = await NotificationService.markAllAsRead(req.user.id);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/notifications/:id', async (req, res) => {
+  try {
+    const result = await NotificationService.delete(req.user.id, req.params.id);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+

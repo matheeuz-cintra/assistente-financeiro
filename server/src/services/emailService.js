@@ -134,4 +134,76 @@ export class EmailService {
     console.error('❌ Nenhum provedor de e-mail (GMAIL ou RESEND) configurado!');
     throw new Error('Serviço de envio de e-mails não configurado. Adicione GMAIL_USER e GMAIL_APP_PASSWORD (ou RESEND_API_KEY) no Render.');
   }
+
+  /**
+   * Generic HTML Email sender via Gmail or Resend
+   */
+  static async sendGenericEmail({ toEmail, subject, htmlContent }) {
+    const gmailUser = process.env.GMAIL_USER;
+    const gmailPass = process.env.GMAIL_APP_PASSWORD;
+    const resendApiKey = process.env.RESEND_API_KEY;
+
+    if (!toEmail) return { success: false, error: 'E-mail não fornecido' };
+
+    // 1. Gmail
+    if (gmailUser && gmailPass) {
+      try {
+        const transporter = nodemailer.createTransport({
+          service: 'gmail',
+          auth: {
+            user: gmailUser.trim(),
+            pass: gmailPass.trim().replace(/\s+/g, '')
+          }
+        });
+
+        const info = await transporter.sendMail({
+          from: `"Assistente Financeiro" <${gmailUser.trim()}>`,
+          to: toEmail,
+          subject,
+          html: htmlContent
+        });
+
+        console.log(`✅ E-mail de notificação enviado para ${toEmail} (ID: ${info.messageId})`);
+        return { success: true, id: info.messageId };
+      } catch (err) {
+        console.error('⚠️ Falha ao enviar e-mail via Gmail:', err.message);
+        return { success: false, error: err.message };
+      }
+    }
+
+    // 2. Resend
+    if (resendApiKey) {
+      const fromAddress = process.env.EMAIL_FROM || 'Assistente Financeiro <onboarding@resend.dev>';
+      try {
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendApiKey.trim()}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: fromAddress,
+            to: [toEmail],
+            subject,
+            html: htmlContent
+          })
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+          console.log(`✅ E-mail de notificação enviado via Resend para ${toEmail} (ID: ${data.id})`);
+          return { success: true, id: data.id };
+        } else {
+          console.warn('⚠️ Resend retornou erro:', data.message);
+          return { success: false, error: data.message };
+        }
+      } catch (err) {
+        console.error('⚠️ Falha ao enviar e-mail via Resend:', err.message);
+        return { success: false, error: err.message };
+      }
+    }
+
+    console.warn(`ℹ️ [EmailService] Notificação para ${toEmail} não enviada: provedor de e-mail não configurado nas variáveis de ambiente.`);
+    return { success: false, error: 'Provedor não configurado' };
+  }
 }

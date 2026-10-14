@@ -1,10 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, SlidersHorizontal, Sparkles, Smartphone } from 'lucide-react';
+import { Eye, EyeOff, SlidersHorizontal, Sparkles, Smartphone, Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { apiClient } from '../api/client.js';
 
-export function Header({ hideValues, onToggleHideValues, onOpenMore, onOpenInstall }) {
+export function Header({ hideValues, onToggleHideValues, onOpenMore, onOpenInstall, onOpenNotifications, unreadCount = 0 }) {
   const { user } = useAuth();
   const [isStandalone, setIsStandalone] = useState(false);
+  const [localUnread, setLocalUnread] = useState(unreadCount);
+
+  useEffect(() => {
+    setLocalUnread(unreadCount);
+  }, [unreadCount]);
+
+  useEffect(() => {
+    // Quick poll unread count
+    const checkCount = async () => {
+      try {
+        const res = await apiClient.getUnreadNotificationsCount();
+        setLocalUnread(res?.count || 0);
+      } catch {}
+    };
+    checkCount();
+    const interval = setInterval(checkCount, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
@@ -54,6 +73,20 @@ export function Header({ hideValues, onToggleHideValues, onOpenMore, onOpenInsta
             <span>Instalar</span>
           </button>
         )}
+
+        <button
+          type="button"
+          onClick={onOpenNotifications}
+          className="relative w-9 h-9 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-colors"
+          title="Notificações e Avisos de Pagamento"
+        >
+          <Bell size={18} />
+          {localUnread > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-extrabold flex items-center justify-center shadow-xs animate-pulse">
+              {localUnread > 9 ? '9+' : localUnread}
+            </span>
+          )}
+        </button>
 
         <button
           onClick={onToggleHideValues}

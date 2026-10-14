@@ -280,5 +280,85 @@ export const apiClient = {
       method: 'POST',
       body: { accountId, transactions }
     });
+  },
+
+  // Scheduled Payments (Contas a Pagar / Pagamentos Agendados)
+  getScheduledPayments(filters = {}) {
+    const params = new URLSearchParams();
+    if (filters.status) params.append('status', filters.status);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return this.request(`/scheduled-payments${query}`);
+  },
+
+  getScheduledPayment(id) {
+    return this.request(`/scheduled-payments/${id}`);
+  },
+
+  createScheduledPayment(data) {
+    return this.request('/scheduled-payments', {
+      method: 'POST',
+      body: data
+    });
+  },
+
+  confirmScheduledPayment(id, { paidDate } = {}) {
+    return this.request(`/scheduled-payments/${id}/confirm`, {
+      method: 'POST',
+      body: { paidDate }
+    });
+  },
+
+  cancelScheduledPayment(id, reason = null) {
+    return this.request(`/scheduled-payments/${id}/cancel`, {
+      method: 'POST',
+      body: { reason }
+    });
+  },
+
+  updateScheduledPayment(id, data) {
+    return this.request(`/scheduled-payments/${id}`, {
+      method: 'PUT',
+      body: data
+    });
+  },
+
+  deleteScheduledPayment(id) {
+    return this.request(`/scheduled-payments/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  triggerScheduledPaymentsCheck() {
+    return this.request('/scheduled-payments/check-notifications', {
+      method: 'POST'
+    });
+  },
+
+  // In-App Notifications
+  getNotifications(limit = 50) {
+    return this.request(`/notifications?limit=${limit}`);
+  },
+
+  getUnreadNotificationsCount() {
+    return this.request('/notifications/unread-count');
+  },
+
+  markNotificationRead(id) {
+    return this.request(`/notifications/${id}/read`, {
+      method: 'PUT'
+    });
+  },
+
+  markAllNotificationsRead() {
+    return this.request('/notifications/read-all', {
+      method: 'POST'
+    });
+  },
+
+  deleteNotification(id) {
+    return this.request(`/notifications/${id}`, {
+      method: 'DELETE'
+    });
   }
 };
+

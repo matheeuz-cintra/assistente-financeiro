@@ -137,3 +137,40 @@ CREATE INDEX IF NOT EXISTS idx_transfers_user_date ON transfers(user_id, date);
 CREATE INDEX IF NOT EXISTS idx_recurring_user ON recurring_transactions(user_id, active);
 CREATE INDEX IF NOT EXISTS idx_budgets_user_my ON budgets(user_id, year, month);
 CREATE INDEX IF NOT EXISTS idx_chat_user_created ON chat_messages(user_id, created_at);
+
+-- Scheduled Payments (Contas a Pagar / Pagamentos Agendados)
+CREATE TABLE IF NOT EXISTS scheduled_payments (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  category_id TEXT REFERENCES categories(id) ON DELETE SET NULL,
+  description TEXT NOT NULL,
+  amount NUMERIC(14,2) NOT NULL,
+  due_date TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  paid_date TEXT,
+  transaction_id TEXT REFERENCES transactions(id) ON DELETE SET NULL,
+  notes TEXT,
+  notified_created INTEGER NOT NULL DEFAULT 1,
+  notified_7_days INTEGER NOT NULL DEFAULT 0,
+  notified_3_days INTEGER NOT NULL DEFAULT 0,
+  notified_due_day INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- In-App Notifications
+CREATE TABLE IF NOT EXISTS in_app_notifications (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'info',
+  reference_id TEXT,
+  action_url TEXT,
+  read INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_sched_pay_user_due ON scheduled_payments(user_id, due_date, status);
+CREATE INDEX IF NOT EXISTS idx_in_app_notif_user_read ON in_app_notifications(user_id, read, created_at);
