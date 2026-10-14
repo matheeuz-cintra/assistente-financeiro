@@ -398,45 +398,57 @@ export function DashboardView({
       </div>
 
       {/* 3. Quick Action Buttons */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
         <button
           onClick={onOpenQuickAdd}
-          className="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
+          className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-100 shadow-xs flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
         >
-          <div className="w-8 h-8 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mb-1.5">
-            <ArrowDownRight size={18} />
+          <div className="w-8 h-8 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mb-1">
+            <ArrowDownRight size={17} />
           </div>
-          <span className="text-[11px] font-semibold text-slate-700">Despesa</span>
+          <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">Despesa</span>
         </button>
 
         <button
           onClick={onOpenQuickAdd}
-          className="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
+          className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-100 shadow-xs flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
         >
-          <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-1.5">
-            <ArrowUpRight size={18} />
+          <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-1">
+            <ArrowUpRight size={17} />
           </div>
-          <span className="text-[11px] font-semibold text-slate-700">Receita</span>
+          <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">Receita</span>
         </button>
 
         <button
           onClick={onOpenQuickAdd}
-          className="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
+          className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-100 shadow-xs flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
         >
-          <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mb-1.5">
-            <ArrowLeftRight size={18} />
+          <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mb-1">
+            <ArrowLeftRight size={17} />
           </div>
-          <span className="text-[11px] font-semibold text-slate-700">Transferir</span>
+          <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">Transferir</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onOpenScheduledPayments?.('new')}
+          className="bg-gradient-to-b from-amber-500/10 to-amber-500/5 p-2.5 sm:p-3 rounded-2xl border border-amber-500/30 shadow-xs flex flex-col items-center justify-center hover:bg-amber-50 transition-all active:scale-95 group"
+          title="Cadastrar pagamento agendado / conta a pagar"
+        >
+          <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center mb-1 shadow-xs group-hover:scale-105 transition-transform">
+            <Calendar size={17} />
+          </div>
+          <span className="text-[10px] sm:text-[11px] font-bold text-amber-900">Agendar</span>
         </button>
 
         <button
           onClick={() => onOpenImport?.()}
-          className="bg-white p-3 rounded-2xl border border-slate-100 shadow-xs flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
+          className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-100 shadow-xs flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
         >
-          <div className="w-8 h-8 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center mb-1.5">
-            <FileSpreadsheet size={18} />
+          <div className="w-8 h-8 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center mb-1">
+            <FileSpreadsheet size={17} />
           </div>
-          <span className="text-[11px] font-semibold text-slate-700">Importar</span>
+          <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">Importar</span>
         </button>
       </div>
 
@@ -644,13 +656,24 @@ export function DashboardView({
             </div>
             <span className="text-[11px] text-slate-400">Lembretes com confirmação manual</span>
           </div>
-          <button
-            type="button"
-            onClick={() => onOpenScheduledPayments?.()}
-            className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center"
-          >
-            Gerenciar <ChevronRight size={14} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onOpenScheduledPayments?.('new')}
+              className="px-2.5 py-1 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 text-[11px] font-bold flex items-center gap-1 border border-amber-500/30 transition-all active:scale-95 shadow-xs"
+              title="Cadastrar novo pagamento agendado"
+            >
+              <Plus size={13} />
+              <span>Agendar</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onOpenScheduledPayments?.('pending')}
+              className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center"
+            >
+              Ver todos <ChevronRight size={14} />
+            </button>
+          </div>
         </div>
 
         {scheduledPayments.length === 0 ? (
@@ -658,10 +681,11 @@ export function DashboardView({
             <span className="text-xs text-slate-500 block">Nenhum pagamento agendado no momento.</span>
             <button
               type="button"
-              onClick={() => onOpenScheduledPayments?.()}
-              className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold transition-all border border-emerald-200"
+              onClick={() => onOpenScheduledPayments?.('new')}
+              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-extrabold transition-all shadow-xs flex items-center gap-1.5 mx-auto active:scale-95"
             >
-              + Agendar Pagamento
+              <Plus size={14} />
+              <span>Cadastrar Pagamento Agendado</span>
             </button>
           </div>
         ) : (

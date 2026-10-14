@@ -5,12 +5,12 @@ import {
 } from 'lucide-react';
 import { apiClient } from '../api/client.js';
 
-export function ScheduledPaymentsModal({ isOpen, onClose, onDataChanged }) {
+export function ScheduledPaymentsModal({ isOpen, onClose, onDataChanged, initialTab = 'pending' }) {
   const [payments, setPayments] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState('pending'); // 'pending', 'history', 'new'
+  const [tab, setTab] = useState(initialTab); // 'pending', 'history', 'new'
   const [actionLoadingId, setActionLoadingId] = useState(null);
 
   // New payment form
@@ -25,13 +25,14 @@ export function ScheduledPaymentsModal({ isOpen, onClose, onDataChanged }) {
 
   useEffect(() => {
     if (isOpen) {
+      setTab(initialTab || 'pending');
       loadData();
       // Set default due date to tomorrow or today
       const tmrw = new Date();
       tmrw.setDate(tmrw.getDate() + 1);
       setDueDate(tmrw.toISOString().slice(0, 10));
     }
-  }, [isOpen]);
+  }, [isOpen, initialTab]);
 
   const loadData = async () => {
     setLoading(true);

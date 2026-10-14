@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, ArrowDownRight, ArrowUpRight, ArrowLeftRight, Sparkles, Check, Mic } from 'lucide-react';
+import { X, ArrowDownRight, ArrowUpRight, ArrowLeftRight, Sparkles, Check, Mic, Calendar } from 'lucide-react';
 import { apiClient } from '../api/client.js';
 
-export function QuickAddModal({ isOpen, onClose, onSuccess, onOpenVoiceAssistant }) {
+export function QuickAddModal({ isOpen, onClose, onSuccess, onOpenVoiceAssistant, onOpenScheduledPayments }) {
   const [tab, setTab] = useState('expense'); // 'expense', 'income', 'transfer'
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -115,33 +115,44 @@ export function QuickAddModal({ isOpen, onClose, onSuccess, onOpenVoiceAssistant
         </button>
 
         {/* Tabs */}
-        <div className="grid grid-cols-3 gap-2 p-1 bg-slate-100 rounded-2xl mt-4">
+        <div className="grid grid-cols-4 gap-1 p-1 bg-slate-100 rounded-2xl mt-4">
           <button
             type="button"
             onClick={() => setTab('expense')}
-            className={`py-2 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+            className={`py-2 text-[11px] font-semibold rounded-xl flex items-center justify-center gap-1 transition-all ${
               tab === 'expense' ? 'bg-white text-rose-600 shadow-xs' : 'text-slate-500'
             }`}
           >
-            <ArrowDownRight size={14} /> Despesa
+            <ArrowDownRight size={13} /> Despesa
           </button>
           <button
             type="button"
             onClick={() => setTab('income')}
-            className={`py-2 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+            className={`py-2 text-[11px] font-semibold rounded-xl flex items-center justify-center gap-1 transition-all ${
               tab === 'income' ? 'bg-white text-emerald-600 shadow-xs' : 'text-slate-500'
             }`}
           >
-            <ArrowUpRight size={14} /> Receita
+            <ArrowUpRight size={13} /> Receita
           </button>
           <button
             type="button"
             onClick={() => setTab('transfer')}
-            className={`py-2 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-all ${
+            className={`py-2 text-[11px] font-semibold rounded-xl flex items-center justify-center gap-1 transition-all ${
               tab === 'transfer' ? 'bg-white text-indigo-600 shadow-xs' : 'text-slate-500'
             }`}
           >
-            <ArrowLeftRight size={14} /> Transferir
+            <ArrowLeftRight size={13} /> Transferir
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              if (onOpenScheduledPayments) onOpenScheduledPayments('new');
+            }}
+            className="py-2 text-[11px] font-bold rounded-xl flex items-center justify-center gap-1 text-amber-700 hover:bg-amber-50 transition-all border border-amber-500/20 bg-amber-500/10"
+            title="Agendar pagamento para data futura"
+          >
+            <Calendar size={13} /> Agendar
           </button>
         </div>
 

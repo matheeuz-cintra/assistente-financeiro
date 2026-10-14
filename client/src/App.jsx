@@ -25,9 +25,15 @@ function MainApp() {
   const [isInstallOpen, setIsInstallOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isScheduledPaymentsOpen, setIsScheduledPaymentsOpen] = useState(false);
+  const [scheduledPaymentsTab, setScheduledPaymentsTab] = useState('pending');
   const [importAccountId, setImportAccountId] = useState(null);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [dataVersion, setDataVersion] = useState(0);
+
+  const handleOpenScheduledPayments = (tab = 'pending') => {
+    setScheduledPaymentsTab(tab);
+    setIsScheduledPaymentsOpen(true);
+  };
 
   if (loading) {
     return (
@@ -80,7 +86,7 @@ function MainApp() {
             onOpenAssistant={() => setActiveTab('chat')}
             onSelectTransaction={(tx) => setSelectedTransaction(tx)}
             onNavigateTab={(tab) => setActiveTab(tab)}
-            onOpenScheduledPayments={() => setIsScheduledPaymentsOpen(true)}
+            onOpenScheduledPayments={handleOpenScheduledPayments}
           />
         )}
 
@@ -106,7 +112,7 @@ function MainApp() {
             onDataChanged={handleDataChanged} 
             onOpenImport={handleOpenImport}
             onOpenInstall={() => setIsInstallOpen(true)}
-            onOpenScheduledPayments={() => setIsScheduledPaymentsOpen(true)}
+            onOpenScheduledPayments={handleOpenScheduledPayments}
           />
         )}
       </main>
@@ -124,6 +130,7 @@ function MainApp() {
         onClose={() => setIsQuickAddOpen(false)}
         onSuccess={handleDataChanged}
         onOpenVoiceAssistant={() => setActiveTab('chat')}
+        onOpenScheduledPayments={handleOpenScheduledPayments}
       />
 
       {/* Import Bank Statement Modal */}
@@ -145,12 +152,13 @@ function MainApp() {
         isOpen={isNotificationsOpen}
         onClose={() => setIsNotificationsOpen(false)}
         onDataChanged={handleDataChanged}
-        onOpenScheduledPayments={() => setIsScheduledPaymentsOpen(true)}
+        onOpenScheduledPayments={handleOpenScheduledPayments}
       />
 
       {/* Scheduled Payments (Contas a Pagar) Manager Modal */}
       <ScheduledPaymentsModal
         isOpen={isScheduledPaymentsOpen}
+        initialTab={scheduledPaymentsTab}
         onClose={() => setIsScheduledPaymentsOpen(false)}
         onDataChanged={handleDataChanged}
       />
