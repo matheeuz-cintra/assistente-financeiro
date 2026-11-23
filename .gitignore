@@ -25,3 +25,4 @@ test/
 # OS files
 .DS_Store
 Thumbs.db
+brain/

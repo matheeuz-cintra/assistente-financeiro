@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, SlidersHorizontal, Sparkles, Smartphone, Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useProfile } from '../context/ProfileContext.jsx';
 import { apiClient } from '../api/client.js';
 
 export function Header({ hideValues, onToggleHideValues, onOpenMore, onOpenInstall, onOpenNotifications, unreadCount = 0 }) {
   const { user } = useAuth();
+  const { activeProfile, openSwitcher } = useProfile();
   const [isStandalone, setIsStandalone] = useState(false);
   const [localUnread, setLocalUnread] = useState(unreadCount);
 
@@ -60,6 +62,18 @@ export function Header({ hideValues, onToggleHideValues, onOpenMore, onOpenInsta
           <span>{firstName}</span>
           <span>👋</span>
         </h1>
+        <div className="flex items-center gap-1.5 mt-1">
+          <button
+            type="button"
+            onClick={openSwitcher}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 active:scale-95 transition-all shadow-2xs"
+            title="Clique para alternar o perfil de acesso da empresa"
+          >
+            <span>{activeProfile?.icon || '👤'}</span>
+            <span className="truncate max-w-[130px]">{activeProfile?.name || 'Administrador'}</span>
+            <span className="text-[9px] text-slate-400">▾</span>
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-1.5">

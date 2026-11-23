@@ -13,9 +13,12 @@ import {
   Smartphone, 
   Sparkles,
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  Building2,
+  Users
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useProfile } from '../context/ProfileContext.jsx';
 
 export function DesktopSidebar({ 
   activeTab, 
@@ -27,6 +30,7 @@ export function DesktopSidebar({
   pendingPaymentsCount = 0
 }) {
   const { user, logout } = useAuth();
+  const { activeProfile, openSwitcher, permissions } = useProfile();
 
   const navItems = [
     {
@@ -114,40 +118,63 @@ export function DesktopSidebar({
           </button>
         </div>
 
+        {/* Active Profile Pill / Switcher */}
+        <button
+          type="button"
+          onClick={openSwitcher}
+          className="w-full p-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700/80 border border-slate-700 text-left flex items-center justify-between transition-all cursor-pointer shadow-xs group"
+          title="Clique para alternar o perfil de acesso da empresa"
+        >
+          <div className="flex items-center gap-2.5 overflow-hidden">
+            <span className="text-base shrink-0">{activeProfile?.icon || '👤'}</span>
+            <div className="overflow-hidden">
+              <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider leading-none">Perfil Ativo</span>
+              <span className="text-xs font-bold text-white block truncate leading-tight mt-0.5">{activeProfile?.name || 'Administrador'}</span>
+            </div>
+          </div>
+          <span className="text-[10px] text-emerald-400 font-bold group-hover:underline shrink-0">Trocar</span>
+        </button>
+
         {/* Primary CTA Buttons */}
         <div className="space-y-1.5 pt-1">
-          <button
-            type="button"
-            onClick={onOpenQuickAdd}
-            className="w-full py-2.5 px-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all cursor-pointer"
-          >
-            <Plus size={16} className="stroke-[3]" />
-            <span>Novo Lançamento</span>
-          </button>
+          {permissions.canAddTransactions && (
+            <button
+              type="button"
+              onClick={onOpenQuickAdd}
+              className="w-full py-2.5 px-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all cursor-pointer"
+            >
+              <Plus size={16} className="stroke-[3]" />
+              <span>Novo Lançamento</span>
+            </button>
+          )}
 
           <div className="grid grid-cols-2 gap-1.5">
-            <button
-              type="button"
-              onClick={onOpenImport}
-              className="py-2 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all text-center cursor-pointer"
-              title="Importar extrato bancário em OFX ou CSV"
-            >
-              <FileSpreadsheet size={13} className="text-emerald-400" />
-              <span>Extrato</span>
-            </button>
+            {permissions.canImportStatements && (
+              <button
+                type="button"
+                onClick={onOpenImport}
+                className="py-2 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all text-center cursor-pointer"
+                title="Importar extrato bancário em OFX ou CSV"
+              >
+                <FileSpreadsheet size={13} className="text-emerald-400" />
+                <span>Extrato</span>
+              </button>
+            )}
 
-            <button
-              type="button"
-              onClick={() => onOpenScheduledPayments('pending')}
-              className="py-2 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all text-center relative cursor-pointer"
-              title="Contas a pagar e agendamentos futuros"
-            >
-              <Calendar size={13} className="text-amber-400" />
-              <span>A Pagar</span>
-              {pendingPaymentsCount > 0 && (
-                <span className="w-2 h-2 rounded-full bg-amber-400 absolute top-1.5 right-1.5" />
-              )}
-            </button>
+            {permissions.canViewScheduledPayments && (
+              <button
+                type="button"
+                onClick={() => onOpenScheduledPayments('pending')}
+                className="py-2 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700/80 text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-all text-center relative cursor-pointer"
+                title="Contas a pagar e agendamentos futuros"
+              >
+                <Calendar size={13} className="text-amber-400" />
+                <span>A Pagar</span>
+                {pendingPaymentsCount > 0 && (
+                  <span className="w-2 h-2 rounded-full bg-amber-400 absolute top-1.5 right-1.5" />
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -201,11 +228,39 @@ export function DesktopSidebar({
           );
         })}
 
+        {/* Company Profiles Management if permitted */}
+        {permissions.canManageProfiles && (
+          <div className="pt-2">
+            <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+              Controle Empresarial
+            </div>
+            <button
+              onClick={() => onSelectTab('more', 'company_profiles')}
+              className={`w-full px-3 py-2.5 rounded-xl text-left flex items-center justify-between transition-all cursor-pointer group ${
+                activeTab === 'more'
+                  ? 'bg-emerald-500/15 text-emerald-300 font-bold border border-emerald-500/30'
+                  : 'text-slate-300 hover:bg-emerald-500/10 hover:text-emerald-200 font-medium'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-900/60 border border-emerald-500/30 text-emerald-300 flex items-center justify-center">
+                  <Building2 size={16} />
+                </div>
+                <div>
+                  <span className="text-xs block">Perfis da Empresa</span>
+                  <span className="text-[10px] text-emerald-400 block leading-tight">Parametrizar o que cada um vê</span>
+                </div>
+              </div>
+              <ChevronRight size={14} className="text-emerald-400" />
+            </button>
+          </div>
+        )}
+
         {/* Special Admin Direct Link if user is admin */}
         {user?.role === 'admin' && (
           <div className="pt-2">
             <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-purple-400">
-              Administração
+              Administração Global
             </div>
             <button
               onClick={() => onSelectTab('more', 'admin_users')}

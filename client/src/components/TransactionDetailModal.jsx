@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { X, Copy, Trash2, Edit3, Calendar, Clock, CreditCard, Wallet, Tag, FileText, Check } from 'lucide-react';
+import { X, Copy, Trash2, Edit3, Calendar, Clock, CreditCard, Wallet, Tag, FileText, Check, Lock } from 'lucide-react';
 import { apiClient } from '../api/client.js';
+import { useProfile } from '../context/ProfileContext.jsx';
 
 export function TransactionDetailModal({ transaction, onClose, onUpdated }) {
+  const { permissions } = useProfile();
   const [isEditing, setIsEditing] = useState(false);
   const [editDescription, setEditDescription] = useState(transaction?.description || '');
   const [editAmount, setEditAmount] = useState(transaction?.amount || 0);
@@ -198,37 +200,49 @@ export function TransactionDetailModal({ transaction, onClose, onUpdated }) {
 
         {/* Actions: Edit, Duplicate, Delete */}
         {!confirmDelete && (
-          <div className="grid grid-cols-3 gap-2 mt-5">
+          <div className="mt-5">
             {isEditing ? (
               <button
                 onClick={handleSaveEdit}
                 disabled={loading}
-                className="col-span-3 py-2.5 rounded-xl bg-emerald-600 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20"
+                className="w-full py-2.5 rounded-xl bg-emerald-600 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20"
               >
                 <Check size={16} /> Salvar Alterações
               </button>
             ) : (
-              <>
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Edit3 size={15} /> Editar
-                </button>
-                <button
-                  onClick={handleDuplicate}
-                  disabled={loading}
-                  className="py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Copy size={15} /> Duplicar
-                </button>
-                <button
-                  onClick={() => setConfirmDelete(true)}
-                  className="py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors"
-                >
-                  <Trash2 size={15} /> Excluir
-                </button>
-              </>
+              <div className="flex gap-2">
+                {permissions.canEditDeleteTransactions && (
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Edit3 size={15} /> Editar
+                  </button>
+                )}
+                {permissions.canAddTransactions && (
+                  <button
+                    onClick={handleDuplicate}
+                    disabled={loading}
+                    className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Copy size={15} /> Duplicar
+                  </button>
+                )}
+                {permissions.canEditDeleteTransactions && (
+                  <button
+                    onClick={() => setConfirmDelete(true)}
+                    className="flex-1 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                  >
+                    <Trash2 size={15} /> Excluir
+                  </button>
+                )}
+                {!permissions.canEditDeleteTransactions && !permissions.canAddTransactions && (
+                  <div className="w-full py-2.5 text-center text-xs text-slate-400 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center gap-1.5">
+                    <Lock size={13} />
+                    <span>Edição e exclusão restritas para este perfil</span>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}

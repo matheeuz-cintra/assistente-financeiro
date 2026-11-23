@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Mic, MicOff, Sparkles, Bot, User, CheckCircle2, AlertTriangle, ArrowRight, CornerDownLeft } from 'lucide-react';
+import { Send, Mic, MicOff, Sparkles, Bot, User, CheckCircle2, AlertTriangle, ArrowRight, CornerDownLeft, Lock } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { apiClient } from '../api/client.js';
+import { useProfile } from '../context/ProfileContext.jsx';
 
 export function ChatView({ onDataChanged }) {
+  const { permissions, activeProfile, openSwitcher } = useProfile();
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -167,6 +169,29 @@ export function ChatView({ onDataChanged }) {
       setLoading(false);
     }
   };
+
+  if (!permissions.canUseAiAssistant) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-md mx-auto my-12 bg-white rounded-3xl border border-slate-200/80 shadow-sm space-y-4 animate-in fade-in">
+        <div className="w-16 h-16 rounded-3xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto text-2xl shadow-inner">
+          🤖
+        </div>
+        <div className="space-y-1">
+          <h2 className="text-base font-bold text-slate-800">Assistente IA Desabilitado</h2>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            O perfil atual (<strong className="text-slate-700">{activeProfile?.name || 'Operador'}</strong>) não possui permissão para utilizar o Assistente Financeiro IA.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={openSwitcher}
+          className="px-5 py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-md active:scale-95 flex items-center gap-2 mx-auto"
+        >
+          <span>Trocar de Perfil</span>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col h-[calc(100vh-65px)] lg:h-[calc(100vh-8.5rem)] max-h-[100dvh] bg-slate-50 max-w-4xl mx-auto w-full lg:rounded-3xl lg:border lg:border-slate-200/80 lg:shadow-xs overflow-hidden">

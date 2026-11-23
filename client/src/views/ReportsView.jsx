@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { 
   BarChart2, TrendingUp, TrendingDown, Download, FileSpreadsheet, 
-  Lightbulb, AlertCircle, ArrowUpRight, ArrowDownRight, RefreshCw, CheckCircle2 
+  Lightbulb, AlertCircle, ArrowUpRight, ArrowDownRight, RefreshCw, CheckCircle2, Lock
 } from 'lucide-react';
 import { apiClient } from '../api/client.js';
+import { useProfile } from '../context/ProfileContext.jsx';
 
 export function ReportsView({ hideValues }) {
+  const { permissions, activeProfile, openSwitcher } = useProfile();
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
@@ -51,6 +53,29 @@ export function ReportsView({ hideValues }) {
       setDownloading(false);
     }
   };
+
+  if (!permissions.canViewReports) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-8 text-center max-w-md mx-auto my-12 bg-white rounded-3xl border border-slate-200/80 shadow-sm p-8 space-y-4 animate-in fade-in">
+        <div className="w-16 h-16 rounded-3xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto text-2xl shadow-inner">
+          🔒
+        </div>
+        <div className="space-y-1">
+          <h2 className="text-base font-bold text-slate-800">Acesso Restrito a Relatórios</h2>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            O perfil atual (<strong className="text-slate-700">{activeProfile?.name || 'Operador'}</strong>) não possui permissão para visualizar relatórios, faturamentos e gráficos gerenciais da empresa.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={openSwitcher}
+          className="px-5 py-2.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-md active:scale-95 flex items-center gap-2 mx-auto"
+        >
+          <span>Trocar de Perfil</span>
+        </button>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext.jsx';
+import { ProfileProvider, useProfile } from './context/ProfileContext.jsx';
 import { Header } from './components/Header.jsx';
 import { BottomNav } from './components/BottomNav.jsx';
 import { DesktopSidebar } from './components/DesktopSidebar.jsx';
@@ -10,6 +11,7 @@ import { ImportStatementModal } from './components/ImportStatementModal.jsx';
 import { InstallAppModal } from './components/InstallAppModal.jsx';
 import { NotificationsModal } from './components/NotificationsModal.jsx';
 import { ScheduledPaymentsModal } from './components/ScheduledPaymentsModal.jsx';
+import { ProfileSwitcherModal } from './components/ProfileSwitcherModal.jsx';
 import { DashboardView } from './views/DashboardView.jsx';
 import { ChatView } from './views/ChatView.jsx';
 import { HistoryView } from './views/HistoryView.jsx';
@@ -21,6 +23,7 @@ import { apiClient } from './api/client.js';
 
 function MainApp() {
   const { isAuthenticated, loading } = useAuth();
+  const { isSwitcherOpen, closeSwitcher } = useProfile();
   const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard', 'reports', 'chat', 'history', 'more'
   const [moreSubSection, setMoreSubSection] = useState('menu');
   const [hideValues, setHideValues] = useState(false);
@@ -163,6 +166,12 @@ function MainApp() {
         transaction={selectedTransaction}
         onClose={() => setSelectedTransaction(null)}
         onUpdated={handleDataChanged}
+      />
+
+      <ProfileSwitcherModal
+        isOpen={isSwitcherOpen}
+        onClose={closeSwitcher}
+        onProfileChanged={() => setDataVersion(v => v + 1)}
       />
     </>
   );
@@ -343,7 +352,9 @@ function MainApp() {
 export default function App() {
   return (
     <AuthProvider>
-      <MainApp />
+      <ProfileProvider>
+        <MainApp />
+      </ProfileProvider>
     </AuthProvider>
   );
 }

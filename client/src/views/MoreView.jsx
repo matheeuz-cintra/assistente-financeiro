@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { 
   Wallet, CreditCard, Calendar, Target, Tags, KeyRound, 
   LogOut, Plus, ChevronRight, Check, X, Trash2, Edit2, ShieldCheck, Download, FileSpreadsheet, UploadCloud, Smartphone, Clock,
-  Users, UserX, UserCheck, Search, RefreshCw, Shield, AlertTriangle
+  Users, UserX, UserCheck, Search, RefreshCw, Shield, AlertTriangle, Building2, Lock, Eye, EyeOff, CheckSquare, Square
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
+import { useProfile } from '../context/ProfileContext.jsx';
 import { apiClient } from '../api/client.js';
 
 export function MoreView({ onDataChanged, onOpenImport, onOpenInstall, onOpenScheduledPayments, initialSection = 'menu' }) {
   const { user, logout } = useAuth();
+  const { profiles, activeProfile, refreshProfiles, switchProfile, permissions } = useProfile();
   const [section, setSection] = useState(initialSection);
 
   useEffect(() => {
@@ -36,6 +38,117 @@ export function MoreView({ onDataChanged, onOpenImport, onOpenInstall, onOpenSch
   const [actionUserId, setActionUserId] = useState(null);
 
   // Modal / Creation state
+  // Company Profile management state
+  const [editingProfile, setEditingProfile] = useState(null);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [pinPromptProfile, setPinPromptProfile] = useState(null);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState('');
+
+  const handleOpenNewProfile = () => {
+    setProfileError('');
+    setEditingProfile({
+      isNew: true,
+      name: '',
+      role_type: 'custom',
+      icon: '👤',
+      color: '#10b981',
+      pin: '',
+      can_view_balances: 1,
+      can_view_reports: 0,
+      can_add_transactions: 1,
+      can_edit_delete_transactions: 0,
+      can_import_statements: 0,
+      can_view_scheduled_payments: 0,
+      can_confirm_scheduled_payments: 0,
+      can_view_cards: 0,
+      can_manage_budgets: 0,
+      can_use_ai_assistant: 0,
+      can_manage_profiles: 0
+    });
+  };
+
+  const handleOpenEditProfile = (p) => {
+    setProfileError('');
+    setEditingProfile({
+      ...p,
+      isNew: false,
+      pin: ''
+    });
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
+    if (!editingProfile) return;
+    if (!editingProfile.name || !editingProfile.name.trim()) {
+      setProfileError('O nome do perfil é obrigatório.');
+      return;
+    }
+    if (editingProfile.pin && !/^\d{4}$/.test(editingProfile.pin.trim())) {
+      setProfileError('O PIN deve conter exatamente 4 números.');
+      return;
+    }
+
+    setProfileSaving(true);
+    setProfileError('');
+    try {
+      if (editingProfile.isNew) {
+        await apiClient.createCompanyProfile(editingProfile);
+      } else {
+        await apiClient.updateCompanyProfile(editingProfile.id, editingProfile);
+      }
+      await refreshProfiles();
+      setEditingProfile(null);
+    } catch (err) {
+      setProfileError(err.message || 'Erro ao salvar perfil.');
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const handleDeleteProfile = async (p) => {
+    if (!confirm(`Tem certeza que deseja excluir o perfil "${p.name}"?`)) return;
+    try {
+      await apiClient.deleteCompanyProfile(p.id);
+      await refreshProfiles();
+    } catch (err) {
+      alert(err.message || 'Erro ao excluir perfil.');
+    }
+  };
+
+  const handleSwitchToProfile = async (p) => {
+    if (p.id === activeProfile?.id) return;
+    if (p.has_pin) {
+      setPinPromptProfile(p);
+      setPinInput('');
+      setPinError('');
+      return;
+    }
+    try {
+      await switchProfile(p.id);
+    } catch (err) {
+      alert(err.message || 'Erro ao trocar perfil.');
+    }
+  };
+
+  const handleConfirmPinSwitch = async (e) => {
+    e.preventDefault();
+    if (!pinPromptProfile) return;
+    if (!pinInput || pinInput.length !== 4) {
+      setPinError('Digite os 4 números do PIN.');
+      return;
+    }
+    try {
+      await switchProfile(pinPromptProfile.id, pinInput);
+      setPinPromptProfile(null);
+      setPinInput('');
+      setPinError('');
+    } catch (err) {
+      setPinError(err.message || 'PIN incorreto.');
+    }
+  };
+
   const [newAccName, setNewAccName] = useState('');
   const [newAccBalance, setNewAccBalance] = useState('');
   const [newAccInst, setNewAccInst] = useState('');
@@ -304,6 +417,31 @@ export function MoreView({ onDataChanged, onOpenImport, onOpenInstall, onOpenSch
 
         {/* Navigation List (Compact list on mobile, Grid on tablet/desktop) */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-xs divide-y divide-slate-100 overflow-hidden text-xs md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-4 md:divide-y-0 md:bg-transparent md:border-0 md:shadow-none">
+          {/* Company Profiles & Permissions Button */}
+          {permissions.canManageProfiles && (
+            <button
+              onClick={() => {
+                setSection('company_profiles');
+                refreshProfiles();
+              }}
+              className="w-full p-4 flex items-center justify-between hover:bg-emerald-50/50 transition-colors bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-transparent border border-emerald-500/30 md:bg-white md:rounded-3xl md:p-4 md:border md:border-emerald-500/40 md:shadow-xs md:hover:border-emerald-500 md:hover:shadow-sm"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-sm">
+                  🏢
+                </div>
+                <div className="text-left">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-slate-800 block">Perfis e Acessos da Empresa</span>
+                    <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-emerald-600 text-white">Empresarial</span>
+                  </div>
+                  <span className="text-[11px] text-slate-500">Parametrizar o que cada operador pode ver</span>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-slate-400" />
+            </button>
+          )}
+
           <button
             onClick={() => setSection('accounts')}
             className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
@@ -456,6 +594,389 @@ export function MoreView({ onDataChanged, onOpenImport, onOpenInstall, onOpenSch
           <p className="text-[11px] leading-relaxed text-slate-500">
             Seus dados financeiros são isolados e protegidos com criptografia. Arquitetura modular pronta para integração futura com Open Finance e bancos.
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // -----------------------------------------------------------
+  // SUB-SECTION: COMPANY PROFILES & PERMISSIONS (EMPRESARIAL)
+  // -----------------------------------------------------------
+  if (section === 'company_profiles') {
+    const PERMISSION_CONFIGS = [
+      { key: 'can_view_balances', label: 'Ver Saldos Bancários e Totais', desc: 'Permite visualizar saldos das contas e total da empresa', icon: '👁️' },
+      { key: 'can_view_reports', label: 'Ver Relatórios, Gráficos e Lucros', desc: 'Permite consultar análises mensais e faturamento', icon: '📊' },
+      { key: 'can_add_transactions', label: 'Lançar Despesas e Receitas', desc: 'Permite adicionar novas despesas e entradas no sistema', icon: '➕' },
+      { key: 'can_edit_delete_transactions', label: 'Editar e Excluir Lançamentos', desc: 'Permite alterar ou apagar registros já salvos', icon: '✏️' },
+      { key: 'can_import_statements', label: 'Importar Extratos Bancários (OFX/CSV)', desc: 'Permite carregar arquivos de extrato dos bancos', icon: '📥' },
+      { key: 'can_view_scheduled_payments', label: 'Ver Contas a Pagar (Agendadas)', desc: 'Permite consultar vencimentos futuros e contas agendadas', icon: '📅' },
+      { key: 'can_confirm_scheduled_payments', label: 'Confirmar e Baixar Pagamentos', desc: 'Permite marcar contas agendadas como pagas', icon: '✅' },
+      { key: 'can_view_cards', label: 'Ver Cartões de Crédito Corporativos', desc: 'Permite consultar limites e faturas dos cartões', icon: '💳' },
+      { key: 'can_manage_budgets', label: 'Ver e Ajustar Orçamentos', desc: 'Permite consultar e definir tetos de gastos mensais', icon: '🎯' },
+      { key: 'can_use_ai_assistant', label: 'Usar Assistente Financeiro IA', desc: 'Permite interagir por voz e texto com a IA', icon: '🤖' },
+      { key: 'can_manage_profiles', label: 'Gerenciar Perfis e Permissões', desc: 'Permite criar acessos e alterar regras dos colaboradores', icon: '🛡️' }
+    ];
+
+    return (
+      <div className="flex-1 pb-24 px-4 lg:px-0 pt-3 space-y-4 lg:space-y-6 animate-in fade-in duration-200">
+        {/* Top Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setSection('menu');
+                setEditingProfile(null);
+              }}
+              className="p-2 rounded-2xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors shadow-2xs"
+            >
+              <X size={18} />
+            </button>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-base font-extrabold text-slate-800">Perfis & Acessos da Empresa</h2>
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-600 text-white">
+                  Controle Corporativo
+                </span>
+              </div>
+              <p className="text-xs text-slate-400">Parametrize exatamente o que cada pessoa da sua equipe pode ver e fazer</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleOpenNewProfile}
+            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-600/20 active:scale-95 transition-all"
+          >
+            <Plus size={15} />
+            <span>Novo Perfil</span>
+          </button>
+        </div>
+
+        {/* PIN Modal when switching */}
+        {pinPromptProfile && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl space-y-4">
+              <div className="text-center space-y-1">
+                <div className="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-600 flex items-center justify-center mx-auto mb-2 text-xl">
+                  {pinPromptProfile.icon || '🔒'}
+                </div>
+                <h3 className="text-sm font-bold text-slate-800">PIN Requerido</h3>
+                <p className="text-xs text-slate-400">Digite o PIN de 4 dígitos para acessar como <strong>{pinPromptProfile.name}</strong></p>
+              </div>
+
+              {pinError && (
+                <div className="p-2.5 rounded-xl bg-rose-50 text-rose-700 text-xs font-semibold text-center border border-rose-200">
+                  {pinError}
+                </div>
+              )}
+
+              <form onSubmit={handleConfirmPinSwitch} className="space-y-4">
+                <div className="flex justify-center my-2">
+                  <input
+                    type="password"
+                    maxLength={4}
+                    value={pinInput}
+                    onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
+                    placeholder="••••"
+                    className="w-32 text-center text-2xl tracking-[0.5em] py-2 rounded-2xl border-2 border-slate-200 font-mono font-bold focus:border-purple-600 focus:outline-none"
+                    autoFocus
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPinPromptProfile(null)}
+                    className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-md shadow-purple-600/20"
+                  >
+                    Confirmar
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Profile Editor Modal / Slide */}
+        {editingProfile && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="w-full max-w-xl bg-white rounded-3xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">{editingProfile.icon || '👤'}</span>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800">
+                      {editingProfile.isNew ? 'Criar Novo Perfil de Acesso' : `Parametrizar: ${editingProfile.name}`}
+                    </h3>
+                    <span className="text-[11px] text-slate-400">Configure as permissões deste colaborador</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingProfile(null)}
+                  className="p-1 rounded-full text-slate-400 hover:text-slate-600"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {profileError && (
+                <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold text-center">
+                  {profileError}
+                </div>
+              )}
+
+              <form onSubmit={handleSaveProfile} className="space-y-4 text-xs">
+                {/* Name & Icon Row */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2 space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700 block">Nome do Perfil / Cargo</label>
+                    <input
+                      type="text"
+                      value={editingProfile.name}
+                      onChange={(e) => setEditingProfile({ ...editingProfile, name: e.target.value })}
+                      placeholder="Ex: Operador de Caixa, Diretoria, etc."
+                      className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700 block">PIN de Segurança (Opcional)</label>
+                    <input
+                      type="password"
+                      maxLength={4}
+                      value={editingProfile.pin || ''}
+                      onChange={(e) => setEditingProfile({ ...editingProfile, pin: e.target.value.replace(/\D/g, '') })}
+                      placeholder="4 dígitos"
+                      className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-center"
+                    />
+                    <span className="text-[9px] text-slate-400 block">Vazio = sem senha</span>
+                  </div>
+                </div>
+
+                {/* Emoji Icons preset */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700 block">Ícone Representativo</label>
+                  <div className="flex items-center gap-2 overflow-x-auto py-1">
+                    {['👑', '💼', '💵', '🛒', '🔍', '👤', '📊', '🛠️', '🎯', '🏢'].map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => setEditingProfile({ ...editingProfile, icon: emoji })}
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg transition-all ${
+                          editingProfile.icon === emoji ? 'bg-emerald-500 text-white shadow-md scale-105' : 'bg-slate-100 hover:bg-slate-200'
+                        }`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 11 Granular Parametrization Checkbox Switches */}
+                <div className="space-y-2 pt-2">
+                  <label className="text-xs font-black text-slate-800 uppercase tracking-wider block">
+                    Parametrização de Permissões
+                  </label>
+                  <p className="text-[11px] text-slate-500 mb-2">Marque o que este perfil tem autorização para visualizar e executar na empresa:</p>
+
+                  <div className="space-y-2 max-h-[38vh] overflow-y-auto pr-1">
+                    {PERMISSION_CONFIGS.map((perm) => {
+                      const isChecked = Boolean(editingProfile[perm.key]);
+                      const isAdminCore = editingProfile.role_type === 'admin' && (perm.key === 'can_manage_profiles' || perm.key === 'can_view_balances');
+
+                      return (
+                        <div
+                          key={perm.key}
+                          onClick={() => {
+                            if (isAdminCore) return;
+                            setEditingProfile({
+                              ...editingProfile,
+                              [perm.key]: !isChecked
+                            });
+                          }}
+                          className={`p-3 rounded-2xl border flex items-start gap-3 transition-all cursor-pointer ${
+                            isChecked ? 'bg-emerald-50/50 border-emerald-300' : 'bg-slate-50/80 border-slate-200 opacity-70'
+                          }`}
+                        >
+                          <div className="pt-0.5 text-base shrink-0">
+                            {isChecked ? (
+                              <CheckSquare size={18} className="text-emerald-600" />
+                            ) : (
+                              <Square size={18} className="text-slate-400" />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <span>{perm.icon}</span>
+                              <span className="font-bold text-slate-800">{perm.label}</span>
+                              {isAdminCore && (
+                                <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-slate-200 text-slate-600">
+                                  Obrigatório no Admin
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-slate-500 block leading-tight mt-0.5">{perm.desc}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingProfile(null)}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={profileSaving}
+                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold shadow-md shadow-emerald-600/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
+                  >
+                    <Check size={16} />
+                    <span>{profileSaving ? 'Salvando...' : 'Salvar Parametrizações'}</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Profiles Grid / List */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {profiles.map((p) => {
+            const isCurrentlyActive = p.id === activeProfile?.id;
+            return (
+              <div
+                key={p.id}
+                className={`bg-white rounded-3xl p-5 border shadow-xs flex flex-col justify-between space-y-4 transition-all ${
+                  isCurrentlyActive ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-slate-100 hover:border-slate-300'
+                }`}
+              >
+                {/* Profile Header */}
+                <div>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-inner shrink-0"
+                        style={{ backgroundColor: `${p.color || '#10b981'}20` }}
+                      >
+                        {p.icon || '👤'}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <h3 className="font-extrabold text-sm text-slate-800">{p.name}</h3>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {isCurrentlyActive ? (
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-600 text-white flex items-center gap-1 shadow-2xs">
+                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> Em Uso
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.2 rounded-md text-[9px] font-bold uppercase bg-slate-100 text-slate-600">
+                              {p.role_type}
+                            </span>
+                          )}
+                          {p.has_pin && (
+                            <span className="px-1.5 py-0.2 rounded-md text-[9px] font-bold bg-purple-50 text-purple-700 flex items-center gap-1 border border-purple-200">
+                              <Lock size={10} /> PIN Ativo
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Summary of Permissions Badges */}
+                  <div className="mt-4 pt-3 border-t border-slate-100 space-y-1.5 text-[11px]">
+                    <div className="flex items-center justify-between text-slate-600">
+                      <span>👁️ Saldos das Contas:</span>
+                      <span className={`font-bold ${p.can_view_balances ? 'text-emerald-600' : 'text-slate-400'}`}>
+                        {p.can_view_balances ? 'Liberado' : 'Oculto 🔒'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-slate-600">
+                      <span>📊 Relatórios & Lucro:</span>
+                      <span className={`font-bold ${p.can_view_reports ? 'text-blue-600' : 'text-slate-400'}`}>
+                        {p.can_view_reports ? 'Liberado' : 'Bloqueado'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-slate-600">
+                      <span>➕ Lançar Despesas/Rec:</span>
+                      <span className={`font-bold ${p.can_add_transactions ? 'text-emerald-600' : 'text-slate-400'}`}>
+                        {p.can_add_transactions ? 'Liberado' : 'Bloqueado'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-slate-600">
+                      <span>📅 Contas a Pagar:</span>
+                      <span className={`font-bold ${p.can_view_scheduled_payments ? 'text-amber-600' : 'text-slate-400'}`}>
+                        {p.can_view_scheduled_payments ? 'Liberado' : 'Bloqueado'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-slate-600">
+                      <span>📥 Extratos OFX/CSV:</span>
+                      <span className={`font-bold ${p.can_import_statements ? 'text-teal-600' : 'text-slate-400'}`}>
+                        {p.can_import_statements ? 'Liberado' : 'Bloqueado'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Profile Actions */}
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                  {!isCurrentlyActive && (
+                    <button
+                      type="button"
+                      onClick={() => handleSwitchToProfile(p)}
+                      className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1 active:scale-95 transition-all shadow-xs"
+                      title="Assumir este perfil agora"
+                    >
+                      <UserCheck size={14} />
+                      <span>Assumir</span>
+                    </button>
+                  )}
+
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEditProfile(p)}
+                      className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1 transition-colors"
+                      title="Editar regras e permissões deste perfil"
+                    >
+                      <Edit2 size={13} />
+                      <span>Parametrizar</span>
+                    </button>
+
+                    {!p.is_default && p.role_type !== 'admin' && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteProfile(p)}
+                        className="p-1.5 rounded-xl text-rose-500 hover:bg-rose-50 transition-colors"
+                        title="Excluir este perfil"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     );

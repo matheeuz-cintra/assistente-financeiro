@@ -2,9 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowDownRight, ArrowUpRight, ArrowLeftRight, TrendingUp, 
   CreditCard, Calendar, AlertCircle, ChevronRight, ChevronLeft, Mic, Sparkles, RefreshCw, Wallet,
-  FileSpreadsheet, UploadCloud, Check, Ban, Clock, ShieldAlert, Plus
+  FileSpreadsheet, UploadCloud, Check, Ban, Clock, ShieldAlert, Plus, Lock
 } from 'lucide-react';
 import { apiClient } from '../api/client.js';
+import { useProfile } from '../context/ProfileContext.jsx';
 
 export function DashboardView({ 
   hideValues, 
@@ -23,6 +24,7 @@ export function DashboardView({
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const scrollContainerRef = useRef(null);
   const [activeCardIndex, setActiveCardIndex] = useState(0);
+  const { permissions, activeProfile, openSwitcher } = useProfile();
 
   useEffect(() => {
     loadDashboard();
@@ -106,7 +108,7 @@ export function DashboardView({
   };
 
   const fmtBRL = (val) => {
-    if (hideValues) return '••••••';
+    if (hideValues || !permissions.canViewBalances) return '••••••';
     return (val || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
@@ -166,6 +168,30 @@ export function DashboardView({
 
   return (
     <div className="flex-1 pb-24 px-4 lg:px-0 pt-3 space-y-4 lg:space-y-6 animate-in fade-in duration-200">
+      {/* Company Profile Active Notice (if not admin) */}
+      {activeProfile && activeProfile.role_type !== 'admin' && (
+        <div className="bg-slate-900 border border-slate-800 text-white px-4 py-2.5 rounded-2xl flex items-center justify-between shadow-xs text-xs animate-in fade-in">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-base">{activeProfile.icon || '👤'}</span>
+            <div className="min-w-0">
+              <span className="text-slate-300 block truncate">
+                Operando como perfil: <strong className="text-white">{activeProfile.name}</strong>
+              </span>
+              <span className="text-[10px] text-amber-400 block font-medium">
+                Acesso com permissões parametrizadas
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={openSwitcher}
+            className="px-3 py-1 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white text-[11px] font-bold transition-all shrink-0 ml-2"
+          >
+            Trocar Perfil
+          </button>
+        </div>
+      )}
+
       {/* 1. Main Balance Multi-Account Cards (Swipeable Carousel on mobile, Grid on Desktop) */}
       <div className="space-y-2">
         <div 
@@ -244,8 +270,13 @@ export function DashboardView({
                     <h2 className="text-3xl font-extrabold tracking-tight text-white mt-0.5">
                       {fmtBRL(card.balance)}
                     </h2>
+                    {!permissions.canViewBalances && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-300/90 mt-1">
+                        <Lock size={10} /> Saldo protegido por perfil
+                      </span>
+                    )}
                   </div>
-                  {!card.isTotal && (
+                  {!card.isTotal && permissions.canImportStatements && (
                     <button
                       type="button"
                       onClick={(e) => {
@@ -314,7 +345,7 @@ export function DashboardView({
         {/* Left Column: Actions, Contas a Pagar & Recent Transactions (lg:col-span-7 xl:col-span-8) */}
         <div className="lg:col-span-7 xl:col-span-8 space-y-4">
           {/* Urgent Alert Banner for Due Today / Overdue Scheduled Payments */}
-      {scheduledPayments.some((p) => p.isDueToday || p.isOverdue) && (
+      {permissions.canViewScheduledPayments && scheduledPayments.some((p) => p.isDueToday || p.isOverdue) && (
         <div className="bg-gradient-to-r from-rose-950/95 via-slate-900 to-amber-950/95 border-2 border-rose-500/60 rounded-3xl p-4 text-white shadow-lg shadow-rose-950/30 space-y-3 animate-fade-in notranslate" translate="no">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -350,111 +381,127 @@ export function DashboardView({
                 </div>
               </div>
 
-              <div className="text-[11px] text-slate-300">
-                Você já realizou este pagamento?
-              </div>
+              {permissions.canConfirmScheduledPayments && (
+                <>
+                  <div className="text-[11px] text-slate-300">
+                    Você já realizou este pagamento?
+                  </div>
 
-              <div className="flex items-center gap-2 pt-1">
-                <button
-                  type="button"
-                  disabled={actionLoadingId === item.id}
-                  onClick={() => handleConfirmPayment(item)}
-                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-[11px] font-bold flex items-center gap-1 shadow-sm transition-all disabled:opacity-50"
-                >
-                  <Check size={13} />
-                  <span>Sim, Confirmar Pagamento</span>
-                </button>
-                <button
-                  type="button"
-                  disabled={actionLoadingId === item.id}
-                  onClick={() => handleCancelPayment(item)}
-                  className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-900/40 text-slate-300 hover:text-rose-300 text-[11px] font-semibold flex items-center gap-1 transition-all border border-slate-700 disabled:opacity-50"
-                >
-                  <Ban size={12} />
-                  <span>Cancelar</span>
-                </button>
-              </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      disabled={actionLoadingId === item.id}
+                      onClick={() => handleConfirmPayment(item)}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-[11px] font-bold flex items-center gap-1 shadow-sm transition-all disabled:opacity-50"
+                    >
+                      <Check size={13} />
+                      <span>Sim, Confirmar Pagamento</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={actionLoadingId === item.id}
+                      onClick={() => handleCancelPayment(item)}
+                      className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-900/40 text-slate-300 hover:text-rose-300 text-[11px] font-semibold flex items-center gap-1 transition-all border border-slate-700 disabled:opacity-50"
+                    >
+                      <Ban size={12} />
+                      <span>Cancelar</span>
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           ))}
         </div>
       )}
 
       {/* 2. Natural Voice & Text Assistant Banner */}
-      <div 
-        onClick={onOpenAssistant}
-        className="cursor-pointer bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 rounded-2xl p-3.5 text-white shadow-md shadow-emerald-700/20 flex items-center justify-between hover:scale-[1.01] active:scale-[0.99] transition-all"
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center shadow-inner">
-            <Mic size={20} className="text-white animate-pulse" />
+      {permissions.canUseAiAssistant && (
+        <div 
+          onClick={onOpenAssistant}
+          className="cursor-pointer bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 rounded-2xl p-3.5 text-white shadow-md shadow-emerald-700/20 flex items-center justify-between hover:scale-[1.01] active:scale-[0.99] transition-all"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center shadow-inner">
+              <Mic size={20} className="text-white animate-pulse" />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold flex items-center gap-1.5">
+                <span>Assistente Financeiro IA</span>
+                <span className="bg-white/25 text-[10px] px-1.5 py-0.2 rounded-md font-semibold">Voz ou Texto</span>
+              </h3>
+              <p className="text-[11px] text-emerald-100 mt-0.5">
+                "Gastei 35 no almoço" • "Quanto gastei este mês?"
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-xs font-bold flex items-center gap-1.5">
-              <span>Assistente Financeiro IA</span>
-              <span className="bg-white/25 text-[10px] px-1.5 py-0.2 rounded-md font-semibold">Voz ou Texto</span>
-            </h3>
-            <p className="text-[11px] text-emerald-100 mt-0.5">
-              "Gastei 35 no almoço" • "Quanto gastei este mês?"
-            </p>
-          </div>
+          <ChevronRight size={18} className="text-emerald-200" />
         </div>
-        <ChevronRight size={18} className="text-emerald-200" />
-      </div>
+      )}
 
       {/* 3. Quick Action Buttons */}
-      <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
-        <button
-          onClick={onOpenQuickAdd}
-          className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-100 shadow-xs flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
-        >
-          <div className="w-8 h-8 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mb-1">
-            <ArrowDownRight size={17} />
-          </div>
-          <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">Despesa</span>
-        </button>
+      {(permissions.canAddTransactions || permissions.canViewScheduledPayments || permissions.canImportStatements) && (
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 sm:gap-2">
+          {permissions.canAddTransactions && (
+            <>
+              <button
+                onClick={onOpenQuickAdd}
+                className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-100 shadow-xs flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
+              >
+                <div className="w-8 h-8 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mb-1">
+                  <ArrowDownRight size={17} />
+                </div>
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">Despesa</span>
+              </button>
 
-        <button
-          onClick={onOpenQuickAdd}
-          className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-100 shadow-xs flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
-        >
-          <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-1">
-            <ArrowUpRight size={17} />
-          </div>
-          <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">Receita</span>
-        </button>
+              <button
+                onClick={onOpenQuickAdd}
+                className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-100 shadow-xs flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
+              >
+                <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-1">
+                  <ArrowUpRight size={17} />
+                </div>
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">Receita</span>
+              </button>
 
-        <button
-          onClick={onOpenQuickAdd}
-          className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-100 shadow-xs flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
-        >
-          <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mb-1">
-            <ArrowLeftRight size={17} />
-          </div>
-          <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">Transferir</span>
-        </button>
+              <button
+                onClick={onOpenQuickAdd}
+                className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-100 shadow-xs flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
+              >
+                <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mb-1">
+                  <ArrowLeftRight size={17} />
+                </div>
+                <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">Transferir</span>
+              </button>
+            </>
+          )}
 
-        <button
-          type="button"
-          onClick={() => onOpenScheduledPayments?.('new')}
-          className="bg-gradient-to-b from-amber-500/10 to-amber-500/5 p-2.5 sm:p-3 rounded-2xl border border-amber-500/30 shadow-xs flex flex-col items-center justify-center hover:bg-amber-50 transition-all active:scale-95 group"
-          title="Cadastrar pagamento agendado / conta a pagar"
-        >
-          <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center mb-1 shadow-xs group-hover:scale-105 transition-transform">
-            <Calendar size={17} />
-          </div>
-          <span className="text-[10px] sm:text-[11px] font-bold text-amber-900">Agendar</span>
-        </button>
+          {permissions.canViewScheduledPayments && (
+            <button
+              type="button"
+              onClick={() => onOpenScheduledPayments?.('new')}
+              className="bg-gradient-to-b from-amber-500/10 to-amber-500/5 p-2.5 sm:p-3 rounded-2xl border border-amber-500/30 shadow-xs flex flex-col items-center justify-center hover:bg-amber-50 transition-all active:scale-95 group"
+              title="Cadastrar pagamento agendado / conta a pagar"
+            >
+              <div className="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center mb-1 shadow-xs group-hover:scale-105 transition-transform">
+                <Calendar size={17} />
+              </div>
+              <span className="text-[10px] sm:text-[11px] font-bold text-amber-900">Agendar</span>
+            </button>
+          )}
 
-        <button
-          onClick={() => onOpenImport?.()}
-          className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-100 shadow-xs flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
-        >
-          <div className="w-8 h-8 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center mb-1">
-            <FileSpreadsheet size={17} />
-          </div>
-          <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">Importar</span>
-        </button>
-      </div>
+          {permissions.canImportStatements && (
+            <button
+              onClick={() => onOpenImport?.()}
+              className="bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-100 shadow-xs flex flex-col items-center justify-center hover:bg-slate-50 transition-colors"
+            >
+              <div className="w-8 h-8 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center mb-1">
+                <FileSpreadsheet size={17} />
+              </div>
+              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-700">Importar</span>
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Welcome / Onboarding Card for New Accounts */}
       {(!recentTransactions || recentTransactions.length === 0) && (
@@ -484,104 +531,108 @@ export function DashboardView({
       )}
 
           {/* Contas a Pagar / Pagamentos Agendados */}
-      <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs notranslate" translate="no">
-        <div className="flex items-center justify-between mb-3.5">
-          <div>
-            <div className="flex items-center gap-1.5">
-              <h3 className="text-sm font-bold text-slate-800">Contas a Pagar</h3>
-              {scheduledPayments.length > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-amber-500/15 text-amber-700 border border-amber-500/30">
-                  {scheduledPayments.length} agendada{scheduledPayments.length > 1 ? 's' : ''}
-                </span>
-              )}
+      {permissions.canViewScheduledPayments && (
+        <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs notranslate" translate="no">
+          <div className="flex items-center justify-between mb-3.5">
+            <div>
+              <div className="flex items-center gap-1.5">
+                <h3 className="text-sm font-bold text-slate-800">Contas a Pagar</h3>
+                {scheduledPayments.length > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-amber-500/15 text-amber-700 border border-amber-500/30">
+                    {scheduledPayments.length} agendada{scheduledPayments.length > 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+              <span className="text-[11px] text-slate-400">Lembretes com confirmação manual</span>
             </div>
-            <span className="text-[11px] text-slate-400">Lembretes com confirmação manual</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onOpenScheduledPayments?.('new')}
+                className="px-2.5 py-1 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 text-[11px] font-bold flex items-center gap-1 border border-amber-500/30 transition-all active:scale-95 shadow-xs"
+                title="Cadastrar novo pagamento agendado"
+              >
+                <Plus size={13} />
+                <span>Agendar</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onOpenScheduledPayments?.('pending')}
+                className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center"
+              >
+                Ver todos <ChevronRight size={14} />
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => onOpenScheduledPayments?.('new')}
-              className="px-2.5 py-1 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 text-[11px] font-bold flex items-center gap-1 border border-amber-500/30 transition-all active:scale-95 shadow-xs"
-              title="Cadastrar novo pagamento agendado"
-            >
-              <Plus size={13} />
-              <span>Agendar</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onOpenScheduledPayments?.('pending')}
-              className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center"
-            >
-              Ver todos <ChevronRight size={14} />
-            </button>
-          </div>
-        </div>
 
-        {scheduledPayments.length === 0 ? (
-          <div className="text-center py-5 px-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
-            <span className="text-xs text-slate-500 block">Nenhum pagamento agendado no momento.</span>
-            <button
-              type="button"
-              onClick={() => onOpenScheduledPayments?.('new')}
-              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-extrabold transition-all shadow-xs flex items-center gap-1.5 mx-auto active:scale-95"
-            >
-              <Plus size={14} />
-              <span>Cadastrar Pagamento Agendado</span>
-            </button>
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {scheduledPayments.slice(0, 4).map((p) => {
-              const isToday = p.isDueToday;
-              const isOverdue = p.isOverdue;
-              return (
-                <div key={p.id} className="py-3 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div
-                      className="w-9 h-9 rounded-2xl flex items-center justify-center text-base shrink-0 shadow-xs"
-                      style={{ backgroundColor: `${p.category_color || '#64748b'}20` }}
-                    >
-                      {p.category_icon || '📅'}
-                    </div>
-                    <div className="min-w-0">
-                      <span className="text-xs font-bold text-slate-800 block truncate">{p.description}</span>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-[10px] text-slate-400">Conta: <strong className="text-slate-600">{p.account_name}</strong></span>
-                        <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded-md ${
-                          isToday
-                            ? 'bg-rose-100 text-rose-700 animate-pulse'
-                            : isOverdue
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          {isToday ? 'Vence Hoje' : isOverdue ? 'Vencido' : `Faltam ${p.daysDiff}d`}
-                        </span>
+          {scheduledPayments.length === 0 ? (
+            <div className="text-center py-5 px-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
+              <span className="text-xs text-slate-500 block">Nenhum pagamento agendado no momento.</span>
+              <button
+                type="button"
+                onClick={() => onOpenScheduledPayments?.('new')}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-extrabold transition-all shadow-xs flex items-center gap-1.5 mx-auto active:scale-95"
+              >
+                <Plus size={14} />
+                <span>Cadastrar Pagamento Agendado</span>
+              </button>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {scheduledPayments.slice(0, 4).map((p) => {
+                const isToday = p.isDueToday;
+                const isOverdue = p.isOverdue;
+                return (
+                  <div key={p.id} className="py-3 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        className="w-9 h-9 rounded-2xl flex items-center justify-center text-base shrink-0 shadow-xs"
+                        style={{ backgroundColor: `${p.category_color || '#64748b'}20` }}
+                      >
+                        {p.category_icon || '📅'}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-slate-800 block truncate">{p.description}</span>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px] text-slate-400">Conta: <strong className="text-slate-600">{p.account_name}</strong></span>
+                          <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded-md ${
+                            isToday
+                              ? 'bg-rose-100 text-rose-700 animate-pulse'
+                              : isOverdue
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {isToday ? 'Vence Hoje' : isOverdue ? 'Vencido' : `Faltam ${p.daysDiff}d`}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="text-right shrink-0 flex items-center gap-2">
-                    <div>
-                      <span className="text-xs font-extrabold text-slate-800 block">{fmtBRL(p.amount)}</span>
-                      <span className="text-[10px] text-slate-400">{p.due_date?.slice(5)}</span>
+                    <div className="text-right shrink-0 flex items-center gap-2">
+                      <div>
+                        <span className="text-xs font-extrabold text-slate-800 block">{fmtBRL(p.amount)}</span>
+                        <span className="text-[10px] text-slate-400">{p.due_date?.slice(5)}</span>
+                      </div>
+
+                      {permissions.canConfirmScheduledPayments && (
+                        <button
+                          type="button"
+                          disabled={actionLoadingId === p.id}
+                          onClick={() => handleConfirmPayment(p)}
+                          className="w-7 h-7 rounded-xl bg-emerald-500/10 hover:bg-emerald-500 text-emerald-600 hover:text-white flex items-center justify-center transition-all disabled:opacity-50"
+                          title="Confirmar pagamento realizado"
+                        >
+                          <Check size={14} />
+                        </button>
+                      )}
                     </div>
-
-                    <button
-                      type="button"
-                      disabled={actionLoadingId === p.id}
-                      onClick={() => handleConfirmPayment(p)}
-                      className="w-7 h-7 rounded-xl bg-emerald-500/10 hover:bg-emerald-500 text-emerald-600 hover:text-white flex items-center justify-center transition-all disabled:opacity-50"
-                      title="Confirmar pagamento realizado"
-                    >
-                      <Check size={14} />
-                    </button>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
           {/* 8. Últimos Lançamentos (Formatted List) */}
       <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs">
@@ -757,7 +808,7 @@ export function DashboardView({
       )}
 
       {/* 6. Cartões de Crédito */}
-      {creditCards && creditCards.length > 0 && (
+      {permissions.canViewCards && creditCards && creditCards.length > 0 && (
         <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs">
           <div className="flex items-center justify-between mb-3.5">
             <div>

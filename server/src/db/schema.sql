@@ -200,3 +200,32 @@ CREATE TABLE IF NOT EXISTS in_app_notifications (
 
 CREATE INDEX IF NOT EXISTS idx_sched_pay_user_due ON scheduled_payments(user_id, due_date, status);
 CREATE INDEX IF NOT EXISTS idx_in_app_notif_user_read ON in_app_notifications(user_id, read, created_at);
+
+-- Company Access Profiles & Granular Permissions
+CREATE TABLE IF NOT EXISTS company_profiles (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  role_type TEXT NOT NULL DEFAULT 'custom',
+  pin TEXT,
+  color TEXT NOT NULL DEFAULT '#10b981',
+  icon TEXT NOT NULL DEFAULT '👤',
+  can_view_balances INTEGER NOT NULL DEFAULT 1,
+  can_view_reports INTEGER NOT NULL DEFAULT 1,
+  can_add_transactions INTEGER NOT NULL DEFAULT 1,
+  can_edit_delete_transactions INTEGER NOT NULL DEFAULT 1,
+  can_import_statements INTEGER NOT NULL DEFAULT 1,
+  can_view_scheduled_payments INTEGER NOT NULL DEFAULT 1,
+  can_confirm_scheduled_payments INTEGER NOT NULL DEFAULT 1,
+  can_view_cards INTEGER NOT NULL DEFAULT 1,
+  can_manage_budgets INTEGER NOT NULL DEFAULT 1,
+  can_use_ai_assistant INTEGER NOT NULL DEFAULT 1,
+  can_manage_profiles INTEGER NOT NULL DEFAULT 0,
+  is_default INTEGER NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_comp_profiles_user ON company_profiles(user_id, active);

@@ -391,6 +391,38 @@ export const apiClient = {
       method: 'PATCH',
       body: { role }
     });
+  },
+
+  // Company Access Profiles & Permissions
+  getCompanyProfiles() {
+    return this.request('/company/profiles');
+  },
+
+  createCompanyProfile(data) {
+    return this.request('/company/profiles', {
+      method: 'POST',
+      body: data
+    });
+  },
+
+  updateCompanyProfile(id, data) {
+    return this.request(`/company/profiles/${id}`, {
+      method: 'PUT',
+      body: data
+    });
+  },
+
+  deleteCompanyProfile(id) {
+    return this.request(`/company/profiles/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  verifyCompanyProfilePin(id, pin) {
+    return this.request(`/company/profiles/${id}/verify-pin`, {
+      method: 'POST',
+      body: { pin }
+    });
   }
 };
 

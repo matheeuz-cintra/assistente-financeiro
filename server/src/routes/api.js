@@ -14,6 +14,7 @@ import { StatementImportService } from '../services/statementImportService.js';
 import { ScheduledPaymentService } from '../services/scheduledPaymentService.js';
 import { NotificationService } from '../services/notificationService.js';
 import { AdminService } from '../services/adminService.js';
+import { ProfileService } from '../services/profileService.js';
 
 export const router = express.Router();
 
@@ -649,6 +650,55 @@ router.patch('/admin/users/:id/role', adminMiddleware, async (req, res) => {
     res.json(result);
   } catch (err) {
     console.error('Error in /admin/users/:id/role:', err);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// COMPANY ACCESS PROFILES & PERMISSIONS
+// -------------------------------------------------------------
+router.get('/company/profiles', async (req, res) => {
+  try {
+    const profiles = await ProfileService.listProfiles(req.user.id);
+    res.json(profiles);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/company/profiles', async (req, res) => {
+  try {
+    const profile = await ProfileService.createProfile(req.user.id, req.body);
+    res.status(201).json(profile);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.put('/company/profiles/:id', async (req, res) => {
+  try {
+    const result = await ProfileService.updateProfile(req.user.id, req.params.id, req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.delete('/company/profiles/:id', async (req, res) => {
+  try {
+    const result = await ProfileService.deleteProfile(req.user.id, req.params.id);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.post('/company/profiles/:id/verify-pin', async (req, res) => {
+  try {
+    const { pin } = req.body;
+    const result = await ProfileService.verifyProfilePin(req.user.id, req.params.id, pin);
+    res.json(result);
+  } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
