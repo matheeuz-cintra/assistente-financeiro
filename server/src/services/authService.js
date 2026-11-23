@@ -134,10 +134,13 @@ export class AuthService {
 
     // Code is valid! Create the user in database
     const userId = crypto.randomUUID();
+    const isOwner = cleanEmail === 'matheusmiranda220104@gmail.com' || cleanEmail === 'matheuscintra220104@gmail.com';
+    const userRole = isOwner ? 'admin' : 'user';
+
     await transaction(async () => {
       await execute(
-        'INSERT INTO users (id, name, email, password_hash) VALUES (?, ?, ?, ?)',
-        [userId, pending.name, cleanEmail, pending.password_hash]
+        'INSERT INTO users (id, name, email, password_hash, role, active) VALUES (?, ?, ?, ?, ?, 1)',
+        [userId, pending.name, cleanEmail, pending.password_hash, userRole]
       );
 
       // Initialize all starter accounts, categories, cards and budgets
@@ -148,13 +151,13 @@ export class AuthService {
     });
 
     const token = jwt.sign(
-      { id: userId, email: cleanEmail, name: pending.name },
+      { id: userId, email: cleanEmail, name: pending.name, role: userRole },
       config.jwtSecret,
       { expiresIn: '30d' }
     );
 
     return {
-      user: { id: userId, name: pending.name, email: cleanEmail },
+      user: { id: userId, name: pending.name, email: cleanEmail, role: userRole, active: 1 },
       token
     };
   }
@@ -218,22 +221,35 @@ export class AuthService {
       throw new Error('E-mail ou senha incorretos');
     }
 
+    if (user.active === 0) {
+      const err = new Error('Sua conta foi desativada pelo administrador. Entre em contato para reativá-la.');
+      err.code = 'ACCOUNT_DEACTIVATED';
+      throw err;
+    }
+
+    const role = user.role || 'user';
+
     const token = jwt.sign(
-      { id: user.id, email: user.email, name: user.name },
+      { id: user.id, email: user.email, name: user.name, role },
       config.jwtSecret,
       { expiresIn: '30d' }
     );
 
     return {
-      user: { id: user.id, name: user.name, email: user.email },
+      user: { id: user.id, name: user.name, email: user.email, role, active: user.active ?? 1 },
       token
     };
   }
 
   static async getProfile(userId) {
-    const user = await queryOne('SELECT id, name, email, created_at FROM users WHERE id = ?', [userId]);
+    const user = await queryOne('SELECT id, name, email, role, active, created_at FROM users WHERE id = ?', [userId]);
     if (!user) {
       throw new Error('Usuário não encontrado');
+    }
+    if (user.active === 0) {
+      const err = new Error('Sua conta foi desativada pelo administrador.');
+      err.code = 'ACCOUNT_DEACTIVATED';
+      throw err;
     }
     return user;
   }

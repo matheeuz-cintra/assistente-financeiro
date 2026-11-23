@@ -62,6 +62,19 @@ export const apiClient = {
       throw new Error(errData.error || 'Sessão expirada. Faça login novamente.');
     }
 
+    if (response.status === 403) {
+      const errData = await response.json().catch(() => ({}));
+      if (errData.isDeactivated) {
+        this.setToken(null);
+        this.setUser(null);
+        window.dispatchEvent(new Event('auth_expired'));
+        const err = new Error(errData.error || 'Sua conta foi desativada pelo administrador.');
+        err.status = 403;
+        err.isDeactivated = true;
+        throw err;
+      }
+    }
+
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
       const err = new Error(errData.error || `Erro ${response.status}: ${response.statusText}`);
@@ -358,6 +371,25 @@ export const apiClient = {
   deleteNotification(id) {
     return this.request(`/notifications/${id}`, {
       method: 'DELETE'
+    });
+  },
+
+  // Admin User Management
+  getAdminUsers() {
+    return this.request('/admin/users');
+  },
+
+  updateUserStatus(userId, active) {
+    return this.request(`/admin/users/${userId}/status`, {
+      method: 'PATCH',
+      body: { active }
+    });
+  },
+
+  updateUserRole(userId, role) {
+    return this.request(`/admin/users/${userId}/role`, {
+      method: 'PATCH',
+      body: { role }
     });
   }
 };

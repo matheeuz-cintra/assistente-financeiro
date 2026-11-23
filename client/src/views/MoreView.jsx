@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Wallet, CreditCard, Calendar, Target, Tags, KeyRound, 
-  LogOut, Plus, ChevronRight, Check, X, Trash2, Edit2, ShieldCheck, Download, FileSpreadsheet, UploadCloud, Smartphone, Clock
+  LogOut, Plus, ChevronRight, Check, X, Trash2, Edit2, ShieldCheck, Download, FileSpreadsheet, UploadCloud, Smartphone, Clock,
+  Users, UserX, UserCheck, Search, RefreshCw, Shield, AlertTriangle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { apiClient } from '../api/client.js';
 
 export function MoreView({ onDataChanged, onOpenImport, onOpenInstall, onOpenScheduledPayments }) {
   const { user, logout } = useAuth();
-  const [section, setSection] = useState('menu'); // 'menu', 'accounts', 'cards', 'recurring', 'budgets', 'categories', 'settings'
+  const [section, setSection] = useState('menu'); // 'menu', 'accounts', 'cards', 'recurring', 'budgets', 'categories', 'settings', 'admin_users'
 
   // Resources state
   const [accounts, setAccounts] = useState([]);
@@ -17,6 +18,13 @@ export function MoreView({ onDataChanged, onOpenImport, onOpenInstall, onOpenSch
   const [budgets, setBudgets] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // Admin user management state
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+  const [adminSearch, setAdminSearch] = useState('');
+  const [adminFilter, setAdminFilter] = useState('all'); // 'all', 'active', 'inactive'
+  const [actionUserId, setActionUserId] = useState(null);
 
   // Modal / Creation state
   const [newAccName, setNewAccName] = useState('');
@@ -71,6 +79,39 @@ export function MoreView({ onDataChanged, onOpenImport, onOpenInstall, onOpenSch
   const notifyChange = () => {
     loadAll();
     if (onDataChanged) onDataChanged();
+  };
+
+  const loadAdminUsers = async () => {
+    if (user?.role !== 'admin') return;
+    setAdminUsersLoading(true);
+    try {
+      const list = await apiClient.getAdminUsers();
+      setAdminUsers(list || []);
+    } catch (err) {
+      console.error('Erro ao carregar usuários:', err);
+    } finally {
+      setAdminUsersLoading(false);
+    }
+  };
+
+  const handleToggleUserStatus = async (targetUser, newStatus) => {
+    const isDeactivating = newStatus === 0;
+    const msg = isDeactivating
+      ? `Deseja realmente DESATIVAR o acesso de "${targetUser.name}" (${targetUser.email})?\n\nO usuário perderá o acesso imediatamente e não conseguirá mais entrar no sistema até ser reativado.`
+      : `Deseja REATIVAR o acesso de "${targetUser.name}" (${targetUser.email})?\n\nO usuário voltará a ter permissão para entrar e usar o aplicativo.`;
+
+    if (!confirm(msg)) return;
+
+    setActionUserId(targetUser.id);
+    try {
+      const res = await apiClient.updateUserStatus(targetUser.id, newStatus);
+      alert(res.message || 'Status do usuário atualizado com sucesso!');
+      await loadAdminUsers();
+    } catch (err) {
+      alert(err.message || 'Erro ao atualizar status do usuário.');
+    } finally {
+      setActionUserId(null);
+    }
   };
 
   // Create Handlers
@@ -178,7 +219,14 @@ export function MoreView({ onDataChanged, onOpenImport, onOpenInstall, onOpenSch
               {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
             </div>
             <div>
-              <span className="text-sm font-bold text-slate-800 block">{user?.name}</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-bold text-slate-800 block">{user?.name}</span>
+                {user?.role === 'admin' && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black uppercase bg-purple-600 text-white shadow-xs">
+                    Admin
+                  </span>
+                )}
+              </div>
               <span className="text-xs text-slate-400 block">{user?.email}</span>
             </div>
           </div>
@@ -191,6 +239,34 @@ export function MoreView({ onDataChanged, onOpenImport, onOpenInstall, onOpenSch
             <LogOut size={18} />
           </button>
         </div>
+
+        {/* Admin Quick Access Card */}
+        {user?.role === 'admin' && (
+          <button
+            type="button"
+            onClick={() => {
+              setSection('admin_users');
+              loadAdminUsers();
+            }}
+            className="w-full p-4 rounded-3xl bg-gradient-to-r from-purple-900 via-indigo-900 to-slate-900 text-white flex items-center justify-between shadow-lg shadow-purple-950/30 hover:scale-[1.01] active:scale-[0.99] transition-all text-left border border-purple-500/40"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-purple-500/20 border border-purple-400/30 backdrop-blur-xs flex items-center justify-center shadow-inner">
+                <ShieldCheck size={20} className="text-purple-300" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-xs block text-white">Painel do Administrador</span>
+                  <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded-md bg-purple-500/50 text-purple-200 border border-purple-400/40">Exclusivo</span>
+                </div>
+                <span className="text-[11px] text-purple-200 block mt-0.5">
+                  Ativar, desativar e gerenciar usuários do site
+                </span>
+              </div>
+            </div>
+            <ChevronRight size={18} className="text-purple-300" />
+          </button>
+        )}
 
         {/* PWA Install Button Card */}
         {onOpenInstall && (
@@ -321,6 +397,30 @@ export function MoreView({ onDataChanged, onOpenImport, onOpenInstall, onOpenSch
             </div>
             <ChevronRight size={16} className="text-slate-400" />
           </button>
+
+          {user?.role === 'admin' && (
+            <button
+              onClick={() => {
+                setSection('admin_users');
+                loadAdminUsers();
+              }}
+              className="w-full p-4 flex items-center justify-between hover:bg-purple-50/50 transition-colors bg-gradient-to-r from-purple-50/40 via-indigo-50/20 to-transparent"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-600 flex items-center justify-center border border-purple-500/20">
+                  <Users size={16} />
+                </div>
+                <div className="text-left">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-slate-800 block">Gerenciar Usuários</span>
+                    <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded-full bg-purple-600 text-white">ADMIN</span>
+                  </div>
+                  <span className="text-[11px] text-slate-400">Desativar e reativar acesso de usuários</span>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-slate-400" />
+            </button>
+          )}
 
           <button
             onClick={() => setSection('categories')}
@@ -790,6 +890,274 @@ export function MoreView({ onDataChanged, onOpenImport, onOpenInstall, onOpenSch
               );
             })}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // -----------------------------------------------------------
+  // SUB-SECTION: ADMIN USER MANAGEMENT (ADMIN ONLY)
+  // -----------------------------------------------------------
+  if (section === 'admin_users') {
+    const filteredUsers = adminUsers.filter((u) => {
+      const matchSearch =
+        !adminSearch ||
+        (u.name || '').toLowerCase().includes(adminSearch.toLowerCase()) ||
+        (u.email || '').toLowerCase().includes(adminSearch.toLowerCase());
+
+      if (!matchSearch) return false;
+
+      if (adminFilter === 'active') return u.active === 1;
+      if (adminFilter === 'inactive') return u.active === 0;
+      return true;
+    });
+
+    const activeCount = adminUsers.filter((u) => u.active === 1).length;
+    const inactiveCount = adminUsers.filter((u) => u.active === 0).length;
+
+    return (
+      <div className="flex-1 pb-24 px-4 pt-3 space-y-4 animate-in fade-in duration-150 notranslate" translate="no">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSection('menu')}
+              className="p-1.5 rounded-xl bg-white text-slate-600 hover:bg-slate-100 transition-colors shadow-xs"
+              title="Voltar ao menu"
+            >
+              <X size={18} />
+            </button>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-base font-bold text-slate-800">Painel do Administrador</h2>
+                <span className="px-1.5 py-0.2 rounded-md bg-purple-600 text-white text-[9px] font-black uppercase">
+                  Admin
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">Ativação e controle de acesso de usuários</p>
+            </div>
+          </div>
+
+          <button
+            onClick={loadAdminUsers}
+            disabled={adminUsersLoading}
+            className="p-2 rounded-xl bg-white text-slate-600 hover:text-purple-600 border border-slate-100 shadow-xs transition-colors disabled:opacity-50"
+            title="Atualizar lista de usuários"
+          >
+            <RefreshCw size={16} className={adminUsersLoading ? 'animate-spin' : ''} />
+          </button>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="p-3 bg-white rounded-2xl border border-slate-100 shadow-xs">
+            <span className="text-[10px] text-slate-400 font-semibold block uppercase">Total</span>
+            <span className="text-lg font-black text-slate-800 block mt-0.5">{adminUsers.length}</span>
+            <span className="text-[9px] text-slate-400">cadastrados</span>
+          </div>
+
+          <div className="p-3 bg-emerald-50/60 rounded-2xl border border-emerald-100 shadow-xs">
+            <span className="text-[10px] text-emerald-700 font-semibold block uppercase">Ativos</span>
+            <span className="text-lg font-black text-emerald-800 block mt-0.5">{activeCount}</span>
+            <span className="text-[9px] text-emerald-600">acesso liberado</span>
+          </div>
+
+          <div className="p-3 bg-rose-50/60 rounded-2xl border border-rose-100 shadow-xs">
+            <span className="text-[10px] text-rose-700 font-semibold block uppercase">Desativados</span>
+            <span className="text-lg font-black text-rose-800 block mt-0.5">{inactiveCount}</span>
+            <span className="text-[9px] text-rose-600">bloqueados</span>
+          </div>
+        </div>
+
+        {/* Security Info Notice */}
+        <div className="p-3.5 rounded-2xl bg-purple-50 border border-purple-200/60 text-purple-900 text-xs flex items-start gap-2.5">
+          <ShieldCheck size={18} className="text-purple-600 shrink-0 mt-0.5" />
+          <div className="text-[11px] leading-relaxed">
+            <strong>Controle exclusivo do Administrador:</strong> Usuários desativados são desconectados imediatamente e bloqueados de fazer login. Suas finanças, contas e transações permanecem preservadas no banco para quando você desejar reativá-los.
+          </div>
+        </div>
+
+        {/* Search & Filter */}
+        <div className="space-y-2">
+          <div className="relative">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={adminSearch}
+              onChange={(e) => setAdminSearch(e.target.value)}
+              placeholder="Buscar por nome ou e-mail..."
+              className="w-full pl-9 pr-8 py-2 rounded-xl bg-white border border-slate-200 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-hidden focus:border-purple-500"
+            />
+            {adminSearch && (
+              <button
+                onClick={() => setAdminSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Filter Pills */}
+          <div className="flex items-center gap-1.5 text-xs font-semibold">
+            <button
+              onClick={() => setAdminFilter('all')}
+              className={`px-3 py-1.5 rounded-xl transition-all ${
+                adminFilter === 'all'
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-100'
+              }`}
+            >
+              Todos ({adminUsers.length})
+            </button>
+            <button
+              onClick={() => setAdminFilter('active')}
+              className={`px-3 py-1.5 rounded-xl transition-all ${
+                adminFilter === 'active'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-white text-emerald-700 hover:bg-emerald-50 border border-slate-100'
+              }`}
+            >
+              Ativos ({activeCount})
+            </button>
+            <button
+              onClick={() => setAdminFilter('inactive')}
+              className={`px-3 py-1.5 rounded-xl transition-all ${
+                adminFilter === 'inactive'
+                  ? 'bg-rose-600 text-white shadow-xs'
+                  : 'bg-white text-rose-700 hover:bg-rose-50 border border-slate-100'
+              }`}
+            >
+              Desativados ({inactiveCount})
+            </button>
+          </div>
+        </div>
+
+        {/* Users List */}
+        <div className="space-y-3">
+          {adminUsersLoading ? (
+            <div className="py-12 text-center text-slate-400 text-xs flex flex-col items-center gap-2">
+              <RefreshCw size={24} className="animate-spin text-purple-600" />
+              <span>Carregando usuários do sistema...</span>
+            </div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 text-xs bg-white rounded-3xl p-6 border border-slate-100">
+              Nenhum usuário encontrado com os filtros atuais.
+            </div>
+          ) : (
+            filteredUsers.map((u) => {
+              const isActive = u.active === 1;
+              const isAdmin = u.role === 'admin';
+              const isSelf = u.isSelf;
+
+              return (
+                <div
+                  key={u.id}
+                  className={`p-4 rounded-3xl border transition-all ${
+                    !isActive
+                      ? 'bg-rose-50/40 border-rose-200/80 shadow-xs'
+                      : isAdmin
+                      ? 'bg-gradient-to-r from-purple-50/60 via-white to-white border-purple-200/80 shadow-xs'
+                      : 'bg-white border-slate-100 shadow-xs'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-sm shrink-0 shadow-xs ${
+                          !isActive
+                            ? 'bg-rose-100 text-rose-700 border border-rose-300'
+                            : isAdmin
+                            ? 'bg-purple-600 text-white shadow-purple-500/20'
+                            : 'bg-slate-100 text-slate-700'
+                        }`}
+                      >
+                        {u.name ? u.name.charAt(0).toUpperCase() : 'U'}
+                      </div>
+
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-bold text-slate-900 block truncate">
+                            {u.name}
+                          </span>
+                          {isSelf && (
+                            <span className="px-1.5 py-0.2 rounded-md bg-purple-100 text-purple-800 text-[9px] font-black">
+                              Você
+                            </span>
+                          )}
+                          {isAdmin ? (
+                            <span className="px-1.5 py-0.2 rounded-md bg-purple-600 text-white text-[9px] font-black uppercase flex items-center gap-0.5">
+                              👑 Admin
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.2 rounded-md bg-slate-100 text-slate-600 text-[9px] font-bold">
+                              Usuário
+                            </span>
+                          )}
+                        </div>
+
+                        <span className="text-[11px] text-slate-500 block truncate mt-0.5">
+                          {u.email}
+                        </span>
+
+                        <span className="text-[10px] text-slate-400 block mt-0.5">
+                          {u.created_at ? `Desde ${new Date(u.created_at).toLocaleDateString('pt-BR')}` : ''} • {u.accounts_count} contas • {u.transactions_count} transações
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Status Pill */}
+                    <div className="shrink-0 text-right">
+                      {isActive ? (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200/80 inline-flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Ativo
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200/80 inline-flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> Desativado
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions Bar */}
+                  <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-[11px] text-slate-400">
+                      {isActive ? 'Acesso ao sistema liberado' : 'Acesso bloqueado pelo admin'}
+                    </span>
+
+                    {isSelf ? (
+                      <span className="text-[11px] font-semibold text-purple-600 italic">
+                        Administrador Principal
+                      </span>
+                    ) : isActive ? (
+                      <button
+                        type="button"
+                        disabled={actionUserId === u.id}
+                        onClick={() => handleToggleUserStatus(u, 0)}
+                        className="px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-700 text-xs font-bold border border-rose-200 flex items-center gap-1.5 transition-all disabled:opacity-50"
+                        title="Desativar este usuário para impedir o acesso"
+                      >
+                        <UserX size={13} />
+                        <span>{actionUserId === u.id ? 'Desativando...' : 'Desativar Usuário'}</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={actionUserId === u.id}
+                        onClick={() => handleToggleUserStatus(u, 1)}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all disabled:opacity-50"
+                        title="Reativar acesso para este usuário"
+                      >
+                        <UserCheck size={13} />
+                        <span>{actionUserId === u.id ? 'Reativando...' : 'Reativar Usuário'}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     );

@@ -56,10 +56,35 @@ export async function initDatabase() {
       const schemaSql = fs.readFileSync(schemaPath, 'utf8');
       await pool.query(schemaSql);
     }
+    // PostgreSQL column migrations
+    try {
+      await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user'");
+      await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS active INTEGER NOT NULL DEFAULT 1");
+    } catch (e) {
+      console.warn('Migration column warning:', e.message);
+    }
   } else {
     const schemaPath = path.join(__dirname, 'schema.sql');
     const schemaSql = fs.readFileSync(schemaPath, 'utf8');
     sqliteDb.exec(schemaSql);
+    // SQLite column migrations
+    try {
+      sqliteDb.exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'");
+    } catch {}
+    try {
+      sqliteDb.exec("ALTER TABLE users ADD COLUMN active INTEGER NOT NULL DEFAULT 1");
+    } catch {}
+  }
+
+  // Ensure admin roles for system owner
+  try {
+    await execute("UPDATE users SET role = 'admin' WHERE email IN ('matheusmiranda220104@gmail.com', 'matheuscintra220104@gmail.com')");
+    const hasAdmin = await queryOne("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
+    if (!hasAdmin) {
+      await execute("UPDATE users SET role = 'admin' WHERE id = (SELECT id FROM users ORDER BY created_at ASC LIMIT 1)");
+    }
+  } catch (e) {
+    console.warn('Admin assignment warning:', e.message);
   }
 }
 

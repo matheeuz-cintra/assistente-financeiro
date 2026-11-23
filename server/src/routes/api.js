@@ -1,5 +1,5 @@
 import express from 'express';
-import { authMiddleware } from '../middleware/authMiddleware.js';
+import { authMiddleware, adminMiddleware } from '../middleware/authMiddleware.js';
 import { AuthService } from '../services/authService.js';
 import { TransactionService } from '../services/transactionService.js';
 import { TransferService } from '../services/transferService.js';
@@ -13,6 +13,7 @@ import { AssistantService } from '../services/assistantService.js';
 import { StatementImportService } from '../services/statementImportService.js';
 import { ScheduledPaymentService } from '../services/scheduledPaymentService.js';
 import { NotificationService } from '../services/notificationService.js';
+import { AdminService } from '../services/adminService.js';
 
 export const router = express.Router();
 
@@ -609,4 +610,47 @@ router.delete('/notifications/:id', async (req, res) => {
     res.status(400).json({ error: err.message });
   }
 });
+
+// -------------------------------------------------------------
+// ADMIN USER MANAGEMENT (ADMIN ONLY)
+// -------------------------------------------------------------
+router.get('/admin/users', adminMiddleware, async (req, res) => {
+  try {
+    const users = await AdminService.listUsers(req.user.id);
+    res.json(users);
+  } catch (err) {
+    console.error('Error in /admin/users:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.patch('/admin/users/:id/status', adminMiddleware, async (req, res) => {
+  try {
+    const { active } = req.body;
+    if (active === undefined || (active !== 0 && active !== 1 && active !== false && active !== true)) {
+      return res.status(400).json({ error: 'Status active inválido. Deve ser 0 ou 1.' });
+    }
+    const numericActive = active === true || active === 1 ? 1 : 0;
+    const result = await AdminService.toggleUserStatus(req.user.id, req.params.id, numericActive);
+    res.json(result);
+  } catch (err) {
+    console.error('Error in /admin/users/:id/status:', err);
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.patch('/admin/users/:id/role', adminMiddleware, async (req, res) => {
+  try {
+    const { role } = req.body;
+    if (!role || (role !== 'admin' && role !== 'user')) {
+      return res.status(400).json({ error: 'Role inválida. Deve ser "admin" ou "user".' });
+    }
+    const result = await AdminService.toggleUserRole(req.user.id, req.params.id, role);
+    res.json(result);
+  } catch (err) {
+    console.error('Error in /admin/users/:id/role:', err);
+    res.status(400).json({ error: err.message });
+  }
+});
+
 
