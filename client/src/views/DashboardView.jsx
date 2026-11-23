@@ -165,19 +165,19 @@ export function DashboardView({
   });
 
   return (
-    <div className="flex-1 pb-24 px-4 pt-3 space-y-4 animate-in fade-in duration-200">
-      {/* 1. Main Balance Multi-Account Swipeable Carousel */}
+    <div className="flex-1 pb-24 px-4 lg:px-0 pt-3 space-y-4 lg:space-y-6 animate-in fade-in duration-200">
+      {/* 1. Main Balance Multi-Account Cards (Swipeable Carousel on mobile, Grid on Desktop) */}
       <div className="space-y-2">
         <div 
           ref={scrollContainerRef}
           onScroll={handleScroll}
-          className="flex overflow-x-auto snap-x snap-mandatory scrollbar-none rounded-3xl"
+          className="flex lg:grid lg:grid-cols-2 xl:grid-cols-4 lg:gap-4 overflow-x-auto lg:overflow-x-visible snap-x snap-mandatory scrollbar-none rounded-3xl"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {accountCards.map((card, idx) => (
             <div
               key={card.id || idx}
-              className="w-full shrink-0 snap-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white rounded-3xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[195px]"
+              className="w-full shrink-0 lg:shrink snap-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 text-white rounded-3xl p-5 shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[195px]"
             >
               {/* Subtle decorative glow */}
               <div className={`absolute -top-12 -right-12 w-40 h-40 ${card.glowColor || 'bg-emerald-500/20'} rounded-full blur-2xl pointer-events-none`} />
@@ -291,7 +291,7 @@ export function DashboardView({
 
         {/* Carousel Pagination Dots */}
         {accountCards.length > 1 && (
-          <div className="flex items-center justify-center gap-1.5 pt-1">
+          <div className="flex lg:hidden items-center justify-center gap-1.5 pt-1">
             {accountCards.map((c, i) => (
               <button
                 key={c.id || i}
@@ -309,7 +309,11 @@ export function DashboardView({
         )}
       </div>
 
-      {/* Urgent Alert Banner for Due Today / Overdue Scheduled Payments */}
+            {/* Main Responsive Grid: 2 columns on Desktop (lg:grid-cols-12), 1 column on Mobile */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 items-start">
+        {/* Left Column: Actions, Contas a Pagar & Recent Transactions (lg:col-span-7 xl:col-span-8) */}
+        <div className="lg:col-span-7 xl:col-span-8 space-y-4">
+          {/* Urgent Alert Banner for Due Today / Overdue Scheduled Payments */}
       {scheduledPayments.some((p) => p.isDueToday || p.isOverdue) && (
         <div className="bg-gradient-to-r from-rose-950/95 via-slate-900 to-amber-950/95 border-2 border-rose-500/60 rounded-3xl p-4 text-white shadow-lg shadow-rose-950/30 space-y-3 animate-fade-in notranslate" translate="no">
           <div className="flex items-center justify-between">
@@ -479,7 +483,175 @@ export function DashboardView({
         </div>
       )}
 
-      {/* 4. Gastos por Categoria (Visual Breakdown) */}
+          {/* Contas a Pagar / Pagamentos Agendados */}
+      <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs notranslate" translate="no">
+        <div className="flex items-center justify-between mb-3.5">
+          <div>
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-sm font-bold text-slate-800">Contas a Pagar</h3>
+              {scheduledPayments.length > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-amber-500/15 text-amber-700 border border-amber-500/30">
+                  {scheduledPayments.length} agendada{scheduledPayments.length > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            <span className="text-[11px] text-slate-400">Lembretes com confirmação manual</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onOpenScheduledPayments?.('new')}
+              className="px-2.5 py-1 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 text-[11px] font-bold flex items-center gap-1 border border-amber-500/30 transition-all active:scale-95 shadow-xs"
+              title="Cadastrar novo pagamento agendado"
+            >
+              <Plus size={13} />
+              <span>Agendar</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onOpenScheduledPayments?.('pending')}
+              className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center"
+            >
+              Ver todos <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+
+        {scheduledPayments.length === 0 ? (
+          <div className="text-center py-5 px-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
+            <span className="text-xs text-slate-500 block">Nenhum pagamento agendado no momento.</span>
+            <button
+              type="button"
+              onClick={() => onOpenScheduledPayments?.('new')}
+              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-extrabold transition-all shadow-xs flex items-center gap-1.5 mx-auto active:scale-95"
+            >
+              <Plus size={14} />
+              <span>Cadastrar Pagamento Agendado</span>
+            </button>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {scheduledPayments.slice(0, 4).map((p) => {
+              const isToday = p.isDueToday;
+              const isOverdue = p.isOverdue;
+              return (
+                <div key={p.id} className="py-3 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className="w-9 h-9 rounded-2xl flex items-center justify-center text-base shrink-0 shadow-xs"
+                      style={{ backgroundColor: `${p.category_color || '#64748b'}20` }}
+                    >
+                      {p.category_icon || '📅'}
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-slate-800 block truncate">{p.description}</span>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-[10px] text-slate-400">Conta: <strong className="text-slate-600">{p.account_name}</strong></span>
+                        <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded-md ${
+                          isToday
+                            ? 'bg-rose-100 text-rose-700 animate-pulse'
+                            : isOverdue
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {isToday ? 'Vence Hoje' : isOverdue ? 'Vencido' : `Faltam ${p.daysDiff}d`}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0 flex items-center gap-2">
+                    <div>
+                      <span className="text-xs font-extrabold text-slate-800 block">{fmtBRL(p.amount)}</span>
+                      <span className="text-[10px] text-slate-400">{p.due_date?.slice(5)}</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={actionLoadingId === p.id}
+                      onClick={() => handleConfirmPayment(p)}
+                      className="w-7 h-7 rounded-xl bg-emerald-500/10 hover:bg-emerald-500 text-emerald-600 hover:text-white flex items-center justify-center transition-all disabled:opacity-50"
+                      title="Confirmar pagamento realizado"
+                    >
+                      <Check size={14} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+          {/* 8. Últimos Lançamentos (Formatted List) */}
+      <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs">
+        <div className="flex items-center justify-between mb-3.5">
+          <div>
+            <h3 className="text-sm font-bold text-slate-800">Últimos Lançamentos</h3>
+            <span className="text-[11px] text-slate-400">Toque para ver detalhes</span>
+          </div>
+          <button 
+            onClick={() => onNavigateTab('history')}
+            className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center"
+          >
+            Ver histórico <ChevronRight size={14} />
+          </button>
+        </div>
+
+        {recentTransactions && recentTransactions.length > 0 ? (
+          <div className="divide-y divide-slate-100">
+            {recentTransactions.map((tx) => {
+              const isExpense = tx.type === 'expense';
+              return (
+                <div
+                  key={tx.id}
+                  onClick={() => onSelectTransaction(tx)}
+                  className="py-3 flex items-center justify-between cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors active:scale-98"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-10 h-10 rounded-2xl flex items-center justify-center text-lg shadow-inner"
+                      style={{ backgroundColor: `${tx.category_color || '#64748b'}18` }}
+                    >
+                      {tx.category_icon || '🏷️'}
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-slate-800 block truncate max-w-[170px]">
+                        {tx.description}
+                      </span>
+                      <span className="text-[10px] text-slate-400 block">
+                        {tx.category_name || 'Geral'} • {tx.credit_card_name || tx.account_name || 'Geral'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <span
+                      className={`text-xs font-extrabold block ${
+                        isExpense ? 'text-rose-600' : 'text-emerald-600'
+                      }`}
+                    >
+                      {isExpense ? '-' : '+'} {fmtBRL(tx.amount)}
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      {tx.transaction_date?.slice(5)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-6 text-slate-400 text-xs">
+            Nenhum lançamento recente. Use o assistente ou o botão "+" para registrar!
+          </div>
+        )}
+      </div>
+        </div>
+
+        {/* Right Column: Categorias, Orçamentos, Cartões & Recorrências (lg:col-span-5 xl:col-span-4) */}
+        <div className="lg:col-span-5 xl:col-span-4 space-y-4">
+          {/* 4. Gastos por Categoria (Visual Breakdown) */}
       <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs">
         <div className="flex items-center justify-between mb-3.5">
           <div>
@@ -642,107 +814,7 @@ export function DashboardView({
         </div>
       )}
 
-      {/* Contas a Pagar / Pagamentos Agendados */}
-      <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs notranslate" translate="no">
-        <div className="flex items-center justify-between mb-3.5">
-          <div>
-            <div className="flex items-center gap-1.5">
-              <h3 className="text-sm font-bold text-slate-800">Contas a Pagar</h3>
-              {scheduledPayments.length > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-amber-500/15 text-amber-700 border border-amber-500/30">
-                  {scheduledPayments.length} agendada{scheduledPayments.length > 1 ? 's' : ''}
-                </span>
-              )}
-            </div>
-            <span className="text-[11px] text-slate-400">Lembretes com confirmação manual</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => onOpenScheduledPayments?.('new')}
-              className="px-2.5 py-1 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-800 text-[11px] font-bold flex items-center gap-1 border border-amber-500/30 transition-all active:scale-95 shadow-xs"
-              title="Cadastrar novo pagamento agendado"
-            >
-              <Plus size={13} />
-              <span>Agendar</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => onOpenScheduledPayments?.('pending')}
-              className="text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center"
-            >
-              Ver todos <ChevronRight size={14} />
-            </button>
-          </div>
-        </div>
-
-        {scheduledPayments.length === 0 ? (
-          <div className="text-center py-5 px-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2">
-            <span className="text-xs text-slate-500 block">Nenhum pagamento agendado no momento.</span>
-            <button
-              type="button"
-              onClick={() => onOpenScheduledPayments?.('new')}
-              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-extrabold transition-all shadow-xs flex items-center gap-1.5 mx-auto active:scale-95"
-            >
-              <Plus size={14} />
-              <span>Cadastrar Pagamento Agendado</span>
-            </button>
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {scheduledPayments.slice(0, 4).map((p) => {
-              const isToday = p.isDueToday;
-              const isOverdue = p.isOverdue;
-              return (
-                <div key={p.id} className="py-3 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div
-                      className="w-9 h-9 rounded-2xl flex items-center justify-center text-base shrink-0 shadow-xs"
-                      style={{ backgroundColor: `${p.category_color || '#64748b'}20` }}
-                    >
-                      {p.category_icon || '📅'}
-                    </div>
-                    <div className="min-w-0">
-                      <span className="text-xs font-bold text-slate-800 block truncate">{p.description}</span>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-[10px] text-slate-400">Conta: <strong className="text-slate-600">{p.account_name}</strong></span>
-                        <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded-md ${
-                          isToday
-                            ? 'bg-rose-100 text-rose-700 animate-pulse'
-                            : isOverdue
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          {isToday ? 'Vence Hoje' : isOverdue ? 'Vencido' : `Faltam ${p.daysDiff}d`}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="text-right shrink-0 flex items-center gap-2">
-                    <div>
-                      <span className="text-xs font-extrabold text-slate-800 block">{fmtBRL(p.amount)}</span>
-                      <span className="text-[10px] text-slate-400">{p.due_date?.slice(5)}</span>
-                    </div>
-
-                    <button
-                      type="button"
-                      disabled={actionLoadingId === p.id}
-                      onClick={() => handleConfirmPayment(p)}
-                      className="w-7 h-7 rounded-xl bg-emerald-500/10 hover:bg-emerald-500 text-emerald-600 hover:text-white flex items-center justify-center transition-all disabled:opacity-50"
-                      title="Confirmar pagamento realizado"
-                    >
-                      <Check size={14} />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* 7. Próximos Pagamentos / Recorrências */}
+          {/* 7. Próximos Pagamentos / Recorrências */}
       {upcomingBills && upcomingBills.length > 0 && (
         <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs">
           <div className="flex items-center justify-between mb-3">
@@ -771,70 +843,7 @@ export function DashboardView({
           </div>
         </div>
       )}
-
-      {/* 8. Últimos Lançamentos (Formatted List) */}
-      <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs">
-        <div className="flex items-center justify-between mb-3.5">
-          <div>
-            <h3 className="text-sm font-bold text-slate-800">Últimos Lançamentos</h3>
-            <span className="text-[11px] text-slate-400">Toque para ver detalhes</span>
-          </div>
-          <button 
-            onClick={() => onNavigateTab('history')}
-            className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center"
-          >
-            Ver histórico <ChevronRight size={14} />
-          </button>
         </div>
-
-        {recentTransactions && recentTransactions.length > 0 ? (
-          <div className="divide-y divide-slate-100">
-            {recentTransactions.map((tx) => {
-              const isExpense = tx.type === 'expense';
-              return (
-                <div
-                  key={tx.id}
-                  onClick={() => onSelectTransaction(tx)}
-                  className="py-3 flex items-center justify-between cursor-pointer hover:bg-slate-50 rounded-xl px-2 -mx-2 transition-colors active:scale-98"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-10 h-10 rounded-2xl flex items-center justify-center text-lg shadow-inner"
-                      style={{ backgroundColor: `${tx.category_color || '#64748b'}18` }}
-                    >
-                      {tx.category_icon || '🏷️'}
-                    </div>
-                    <div>
-                      <span className="text-xs font-bold text-slate-800 block truncate max-w-[170px]">
-                        {tx.description}
-                      </span>
-                      <span className="text-[10px] text-slate-400 block">
-                        {tx.category_name || 'Geral'} • {tx.credit_card_name || tx.account_name || 'Geral'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="text-right">
-                    <span
-                      className={`text-xs font-extrabold block ${
-                        isExpense ? 'text-rose-600' : 'text-emerald-600'
-                      }`}
-                    >
-                      {isExpense ? '-' : '+'} {fmtBRL(tx.amount)}
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      {tx.transaction_date?.slice(5)}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="text-center py-6 text-slate-400 text-xs">
-            Nenhum lançamento recente. Use o assistente ou o botão "+" para registrar!
-          </div>
-        )}
       </div>
     </div>
   );

@@ -169,7 +169,7 @@ export function ChatView({ onDataChanged }) {
   };
 
   return (
-    <div className="flex-1 flex flex-col h-[calc(100vh-65px)] max-h-[100dvh] bg-slate-50">
+    <div className="flex-1 flex flex-col h-[calc(100vh-65px)] lg:h-[calc(100vh-8.5rem)] max-h-[100dvh] bg-slate-50 max-w-4xl mx-auto w-full lg:rounded-3xl lg:border lg:border-slate-200/80 lg:shadow-xs overflow-hidden">
       {/* Header Info */}
       <div className="bg-white px-4 py-2.5 border-b border-slate-100 flex items-center justify-between z-10 shadow-2xs">
         <div className="flex items-center gap-2.5">
@@ -309,7 +309,7 @@ export function ChatView({ onDataChanged }) {
       )}
 
       {/* Bottom Input Field */}
-      <div className="bg-white p-3 border-t border-slate-200/80 mb-14">
+      <div className="bg-white p-3 border-t border-slate-200/80 mb-14 lg:mb-0">
         <form
           onSubmit={(e) => {
             e.preventDefault();

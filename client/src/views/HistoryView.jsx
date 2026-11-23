@@ -98,7 +98,7 @@ export function HistoryView({ onSelectTransaction, hideValues, onOpenImport }) {
   };
 
   return (
-    <div className="flex-1 pb-24 px-4 pt-3 space-y-3.5 animate-in fade-in duration-200">
+    <div className="flex-1 pb-24 px-4 lg:px-0 pt-3 space-y-4 animate-in fade-in duration-200">
       {/* Title & Quick Search Bar */}
       <div>
         <h2 className="text-lg font-bold text-slate-800">Histórico de Lançamentos</h2>

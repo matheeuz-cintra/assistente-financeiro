@@ -67,7 +67,7 @@ export function ReportsView({ hideValues }) {
   const maxTimelineVal = timeline ? Math.max(...timeline.map((t) => Math.max(t.income, t.expense, 1))) : 1;
 
   return (
-    <div className="flex-1 pb-24 px-4 pt-3 space-y-4 animate-in fade-in duration-200">
+    <div className="flex-1 pb-24 px-4 lg:px-0 pt-3 space-y-4 lg:space-y-6 animate-in fade-in duration-200">
       {/* Title & Export Actions */}
       <div className="flex items-center justify-between">
         <div>
@@ -100,45 +100,11 @@ export function ReportsView({ hideValues }) {
         </div>
       </div>
 
-      {/* 1. Smart Financial Insights (Section 19) */}
-      {insights && insights.length > 0 && (
-        <div className="bg-white rounded-3xl p-4 border border-slate-100 shadow-xs space-y-2.5">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
-              <Lightbulb size={16} />
-            </div>
-            <div>
-              <h3 className="text-xs font-bold text-slate-800">Inteligência Financeira IA</h3>
-              <span className="text-[10px] text-slate-400">Insights baseados em seus dados reais</span>
-            </div>
-          </div>
-
-          <div className="space-y-2 pt-1">
-            {insights.map((ins, idx) => (
-              <div
-                key={idx}
-                className={`p-3 rounded-2xl text-xs flex items-start gap-2.5 border ${
-                  ins.type === 'warning'
-                    ? 'bg-amber-50/60 border-amber-200/60 text-amber-900'
-                    : ins.type === 'success'
-                    ? 'bg-emerald-50/60 border-emerald-200/60 text-emerald-900'
-                    : 'bg-indigo-50/60 border-indigo-200/60 text-indigo-900'
-                }`}
-              >
-                <div className="mt-0.5 font-bold">
-                  {ins.type === 'warning' ? <AlertCircle size={14} className="text-amber-600" /> : <CheckCircle2 size={14} className="text-emerald-600" />}
-                </div>
-                <div>
-                  <span className="font-bold block text-[11px]">{ins.title}</span>
-                  <p className="text-[11px] leading-relaxed mt-0.5 opacity-90">{ins.text}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 2. Month Comparison (Section 18) */}
+            {/* Responsive Grid: 2 columns on Desktop (lg:grid-cols-2), 1 column on Mobile */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 items-start">
+        {/* Left Column: Comparativo, Evolução e Categorias */}
+        <div className="space-y-4 lg:space-y-6">
+          {/* 2. Month Comparison (Section 18) */}
       <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs space-y-3">
         <h3 className="text-sm font-bold text-slate-800">Comparativo com Mês Anterior</h3>
 
@@ -185,7 +151,7 @@ export function ReportsView({ hideValues }) {
         </div>
       </div>
 
-      {/* 3. Evolução Financeira (Últimos 6 meses) */}
+          {/* 3. Evolução Financeira (Últimos 6 meses) */}
       <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs space-y-4">
         <div>
           <h3 className="text-sm font-bold text-slate-800">Evolução Mensal</h3>
@@ -229,7 +195,7 @@ export function ReportsView({ hideValues }) {
         </div>
       </div>
 
-      {/* 4. Gastos por Categoria */}
+          {/* 4. Gastos por Categoria */}
       <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs space-y-3.5">
         <h3 className="text-sm font-bold text-slate-800">Detalhamento por Categoria</h3>
 
@@ -262,8 +228,49 @@ export function ReportsView({ hideValues }) {
           <div className="text-center py-6 text-slate-400 text-xs">Sem despesas registradas.</div>
         )}
       </div>
+        </div>
 
-      {/* 5. Maiores Despesas do Mês (Top 5) */}
+        {/* Right Column: Insights IA, Maiores Gastos e Contas/Cartões */}
+        <div className="space-y-4 lg:space-y-6">
+          {/* 1. Smart Financial Insights (Section 19) */}
+      {insights && insights.length > 0 && (
+        <div className="bg-white rounded-3xl p-4 border border-slate-100 shadow-xs space-y-2.5">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
+              <Lightbulb size={16} />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-slate-800">Inteligência Financeira IA</h3>
+              <span className="text-[10px] text-slate-400">Insights baseados em seus dados reais</span>
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-1">
+            {insights.map((ins, idx) => (
+              <div
+                key={idx}
+                className={`p-3 rounded-2xl text-xs flex items-start gap-2.5 border ${
+                  ins.type === 'warning'
+                    ? 'bg-amber-50/60 border-amber-200/60 text-amber-900'
+                    : ins.type === 'success'
+                    ? 'bg-emerald-50/60 border-emerald-200/60 text-emerald-900'
+                    : 'bg-indigo-50/60 border-indigo-200/60 text-indigo-900'
+                }`}
+              >
+                <div className="mt-0.5 font-bold">
+                  {ins.type === 'warning' ? <AlertCircle size={14} className="text-amber-600" /> : <CheckCircle2 size={14} className="text-emerald-600" />}
+                </div>
+                <div>
+                  <span className="font-bold block text-[11px]">{ins.title}</span>
+                  <p className="text-[11px] leading-relaxed mt-0.5 opacity-90">{ins.text}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+          {/* 5. Maiores Despesas do Mês (Top 5) */}
       {topExpenses && topExpenses.length > 0 && (
         <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-xs space-y-3">
           <h3 className="text-sm font-bold text-slate-800">Maiores Despesas do Mês</h3>
@@ -292,7 +299,7 @@ export function ReportsView({ hideValues }) {
         </div>
       )}
 
-      {/* 6. Gastos por Conta e por Cartão */}
+          {/* 6. Gastos por Conta e por Cartão */}
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-white rounded-3xl p-4 border border-slate-100 shadow-xs">
           <h4 className="text-xs font-bold text-slate-800 mb-2">Por Conta</h4>
@@ -324,6 +331,8 @@ export function ReportsView({ hideValues }) {
           ) : (
             <span className="text-[10px] text-slate-400">Nenhum gasto no cartão</span>
           )}
+        </div>
+      </div>
         </div>
       </div>
     </div>

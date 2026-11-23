@@ -7,9 +7,18 @@ import {
 import { useAuth } from '../context/AuthContext.jsx';
 import { apiClient } from '../api/client.js';
 
-export function MoreView({ onDataChanged, onOpenImport, onOpenInstall, onOpenScheduledPayments }) {
+export function MoreView({ onDataChanged, onOpenImport, onOpenInstall, onOpenScheduledPayments, initialSection = 'menu' }) {
   const { user, logout } = useAuth();
-  const [section, setSection] = useState('menu'); // 'menu', 'accounts', 'cards', 'recurring', 'budgets', 'categories', 'settings', 'admin_users'
+  const [section, setSection] = useState(initialSection);
+
+  useEffect(() => {
+    if (initialSection && initialSection !== 'menu') {
+      setSection(initialSection);
+      if (initialSection === 'admin_users') {
+        loadAdminUsers();
+      }
+    }
+  }, [initialSection]);
 
   // Resources state
   const [accounts, setAccounts] = useState([]);
@@ -206,7 +215,7 @@ export function MoreView({ onDataChanged, onOpenImport, onOpenInstall, onOpenSch
   // -----------------------------------------------------------
   if (section === 'menu') {
     return (
-      <div className="flex-1 pb-24 px-4 pt-3 space-y-4 animate-in fade-in duration-200">
+      <div className="flex-1 pb-24 px-4 lg:px-0 pt-3 space-y-4 lg:space-y-6 animate-in fade-in duration-200">
         <div>
           <h2 className="text-lg font-bold text-slate-800">Mais Opções</h2>
           <p className="text-xs text-slate-400">Gerenciamento de contas, cartões e regras</p>
@@ -293,8 +302,8 @@ export function MoreView({ onDataChanged, onOpenImport, onOpenInstall, onOpenSch
           </button>
         )}
 
-        {/* Navigation List */}
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-xs divide-y divide-slate-100 overflow-hidden text-xs">
+        {/* Navigation List (Compact list on mobile, Grid on tablet/desktop) */}
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-xs divide-y divide-slate-100 overflow-hidden text-xs md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-4 md:divide-y-0 md:bg-transparent md:border-0 md:shadow-none">
           <button
             onClick={() => setSection('accounts')}
             className="w-full p-4 flex items-center justify-between hover:bg-slate-50 transition-colors"

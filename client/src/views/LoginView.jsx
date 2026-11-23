@@ -173,27 +173,85 @@ export function LoginView() {
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-between p-6 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950 text-white min-h-[100dvh]">
-      {/* Brand Header */}
-      <div className="pt-6 text-center space-y-3">
-        <div className="inline-flex items-center justify-center w-24 h-24 rounded-3xl overflow-hidden shadow-2xl shadow-purple-900/40 border border-slate-700/60 bg-black">
-          <img 
-            src="/logo.jpg" 
-            alt="Assistente Financeiro Logo" 
-            className="w-full h-full object-cover"
-          />
+    <div className="flex-1 flex flex-col lg:flex-row items-center justify-center p-6 lg:p-12 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white min-h-[100dvh] w-full">
+      {/* Desktop Left Hero Presentation (hidden on small mobile screens) */}
+      <div className="hidden lg:flex flex-col justify-center max-w-lg pr-8 space-y-6 animate-in fade-in duration-300">
+        <div className="flex items-center gap-3">
+          <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-2xl shadow-emerald-500/20 border border-emerald-500/30 bg-black shrink-0">
+            <img 
+              src="/logo.jpg" 
+              alt="Assistente Financeiro Logo" 
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <div>
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              100% Grátis & Seguro
+            </span>
+            <h1 className="text-3xl font-black tracking-tight text-white mt-1">Assistente Financeiro</h1>
+          </div>
         </div>
 
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-white">Assistente Financeiro</h1>
-          <p className="text-xs text-slate-400 font-medium mt-1">
-            Seu assistente financeiro inteligente por voz e texto
-          </p>
+        <p className="text-sm text-slate-300 leading-relaxed font-normal">
+          Controle suas finanças pessoais com facilidade. Registre gastos por voz, importe extratos de qualquer banco e acompanhe relatórios inteligentes tanto no computador quanto no celular.
+        </p>
+
+        {/* Highlight points */}
+        <div className="space-y-3 pt-2">
+          <div className="flex items-start gap-3 p-3 rounded-2xl bg-slate-900/80 border border-slate-800">
+            <div className="w-9 h-9 rounded-xl bg-purple-500/20 border border-purple-500/30 text-purple-400 flex items-center justify-center shrink-0">
+              <Sparkles size={18} />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-white">Assistente com Inteligência Artificial</h3>
+              <p className="text-[11px] text-slate-400">Registre despesas e tire dúvidas digitando ou falando naturalmente pelo microfone.</p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 p-3 rounded-2xl bg-slate-900/80 border border-slate-800">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
+              <RefreshCw size={18} />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-white">Importação de Extrato Bancário</h3>
+              <p className="text-[11px] text-slate-400">Envie arquivos OFX ou CSV do Nubank, Inter, Itaú e outros com conciliação automática.</p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 p-3 rounded-2xl bg-slate-900/80 border border-slate-800">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
+              <Lock size={18} />
+            </div>
+            <div>
+              <h3 className="text-xs font-bold text-white">Contas a Pagar & Alertas por E-mail</h3>
+              <p className="text-[11px] text-slate-400">Agende pagamentos e receba lembretes 7 dias antes, 3 dias antes e no vencimento.</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Main Card */}
-      <div className="bg-slate-800/80 backdrop-blur-md rounded-3xl p-6 border border-slate-700/60 shadow-2xl space-y-4 my-auto w-full max-w-sm mx-auto">
+      {/* Main Auth Card Container */}
+      <div className="w-full max-w-sm flex flex-col justify-between my-auto py-2">
+        {/* Mobile-only Brand Header */}
+        <div className="pt-2 text-center space-y-3 lg:hidden mb-4">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl overflow-hidden shadow-2xl shadow-purple-900/40 border border-slate-700/60 bg-black">
+            <img 
+              src="/logo.jpg" 
+              alt="Assistente Financeiro Logo" 
+              className="w-full h-full object-cover"
+            />
+          </div>
+
+          <div>
+            <h1 className="text-2xl font-black tracking-tight text-white">Assistente Financeiro</h1>
+            <p className="text-xs text-slate-400 font-medium mt-1">
+              Seu assistente financeiro inteligente por voz e texto
+            </p>
+          </div>
+        </div>
+
+        {/* Main Card */}
+        <div className="bg-slate-900/90 backdrop-blur-xl rounded-3xl p-6 border border-slate-800 shadow-2xl space-y-4 w-full">
         {step === 'auth' ? (
           <>
             {/* Tabs Entrar / Criar Conta */}
@@ -401,5 +459,6 @@ export function LoginView() {
         <ShieldCheck size={13} className="text-emerald-500" /> Dados criptografados e armazenados com segurança.
       </div>
     </div>
+  </div>
   );
 }
