@@ -423,6 +423,37 @@ export const apiClient = {
       method: 'POST',
       body: { pin }
     });
+  },
+
+  // Company Members / Employees
+  getCompanyMembers() {
+    return this.request('/company/members');
+  },
+
+  createCompanyMember(data) {
+    return this.request('/company/members', {
+      method: 'POST',
+      body: data
+    });
+  },
+
+  updateCompanyMember(id, data) {
+    return this.request(`/company/members/${id}`, {
+      method: 'PUT',
+      body: data
+    });
+  },
+
+  toggleCompanyMemberActive(id) {
+    return this.request(`/company/members/${id}/toggle-active`, {
+      method: 'PATCH'
+    });
+  },
+
+  deleteCompanyMember(id) {
+    return this.request(`/company/members/${id}`, {
+      method: 'DELETE'
+    });
   }
 };
 

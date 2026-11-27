@@ -123,16 +123,20 @@ export function DesktopSidebar({
           type="button"
           onClick={openSwitcher}
           className="w-full p-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700/80 border border-slate-700 text-left flex items-center justify-between transition-all cursor-pointer shadow-xs group"
-          title="Clique para alternar o perfil de acesso da empresa"
+          title={user?.isCompanyOwner ? "Clique para alternar o perfil de acesso da empresa" : "Perfil corporativo atribuído"}
         >
           <div className="flex items-center gap-2.5 overflow-hidden">
             <span className="text-base shrink-0">{activeProfile?.icon || '👤'}</span>
             <div className="overflow-hidden">
-              <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider leading-none">Perfil Ativo</span>
+              <span className="text-[9px] uppercase font-bold text-slate-400 block tracking-wider leading-none">
+                {user?.isCompanyOwner ? 'Perfil Ativo' : 'Acesso de Funcionário'}
+              </span>
               <span className="text-xs font-bold text-white block truncate leading-tight mt-0.5">{activeProfile?.name || 'Administrador'}</span>
             </div>
           </div>
-          <span className="text-[10px] text-emerald-400 font-bold group-hover:underline shrink-0">Trocar</span>
+          {user?.isCompanyOwner && (
+            <span className="text-[10px] text-emerald-400 font-bold group-hover:underline shrink-0">Trocar</span>
+          )}
         </button>
 
         {/* Primary CTA Buttons */}

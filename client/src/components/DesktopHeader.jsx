@@ -113,14 +113,18 @@ export function DesktopHeader({
           type="button"
           onClick={openSwitcher}
           className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200/80 text-xs font-bold flex items-center gap-2 transition-all cursor-pointer shadow-2xs group"
-          title="Clique para alternar o perfil de acesso da empresa"
+          title={user?.isCompanyOwner ? "Clique para alternar o perfil de acesso da empresa" : "Perfil corporativo atribuído"}
         >
           <span className="text-base">{activeProfile?.icon || '👤'}</span>
           <div className="text-left">
-            <span className="text-[10px] text-slate-400 block font-normal leading-none">Perfil Empresa</span>
+            <span className="text-[10px] text-slate-400 block font-normal leading-none">
+              {user?.isCompanyOwner ? 'Perfil Empresa' : user?.name || 'Funcionário'}
+            </span>
             <span className="text-xs text-slate-800 font-bold block leading-tight">{activeProfile?.name || 'Administrador'}</span>
           </div>
-          <ChevronDown size={14} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
+          {user?.isCompanyOwner && (
+            <ChevronDown size={14} className="text-slate-400 group-hover:text-slate-600 transition-colors" />
+          )}
         </button>
 
         <div className="h-6 w-px bg-slate-200 mx-0.5" />

@@ -67,11 +67,11 @@ export function Header({ hideValues, onToggleHideValues, onOpenMore, onOpenInsta
             type="button"
             onClick={openSwitcher}
             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 active:scale-95 transition-all shadow-2xs"
-            title="Clique para alternar o perfil de acesso da empresa"
+            title={user?.isCompanyOwner ? "Clique para alternar o perfil de acesso da empresa" : "Perfil corporativo atribuído"}
           >
             <span>{activeProfile?.icon || '👤'}</span>
             <span className="truncate max-w-[130px]">{activeProfile?.name || 'Administrador'}</span>
-            <span className="text-[9px] text-slate-400">▾</span>
+            {user?.isCompanyOwner && <span className="text-[9px] text-slate-400">▾</span>}
           </button>
         </div>
       </div>

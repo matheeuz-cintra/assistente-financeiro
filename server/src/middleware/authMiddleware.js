@@ -11,7 +11,7 @@ export async function authMiddleware(req, res, next) {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, config.jwtSecret);
-    const user = await queryOne('SELECT id, name, email, role, active FROM users WHERE id = ?', [decoded.id]);
+    const user = await queryOne('SELECT id, name, email, role, active, company_id, company_profile_id FROM users WHERE id = ?', [decoded.id]);
     
     if (!user) {
       return res.status(401).json({ error: 'Usuário não encontrado' });
@@ -24,7 +24,20 @@ export async function authMiddleware(req, res, next) {
       });
     }
 
-    req.user = user; // { id, name, email, role, active }
+    // Company multi-tenancy:
+    // If user belongs to a company, the data tenant ID is their company_id.
+    // If user is the company owner, companyId is their own user id.
+    const companyId = user.company_id || user.id;
+    const isCompanyOwner = !user.company_id || user.company_id === user.id;
+
+    req.user = {
+      ...user,
+      id: companyId,             // Shared company tenant ID (so all services query company data)
+      operatorId: user.id,       // Individual employee ID
+      companyId: companyId,      // Explicit company ID
+      companyProfileId: user.company_profile_id, // Assigned profile
+      isCompanyOwner: isCompanyOwner
+    };
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Sessão expirada ou token inválido' });

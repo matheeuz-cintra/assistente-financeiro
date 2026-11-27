@@ -228,6 +228,7 @@ export class AuthService {
     }
 
     const role = user.role || 'user';
+    const isCompanyOwner = !user.company_id || user.company_id === user.id;
 
     const token = jwt.sign(
       { id: user.id, email: user.email, name: user.name, role },
@@ -236,13 +237,22 @@ export class AuthService {
     );
 
     return {
-      user: { id: user.id, name: user.name, email: user.email, role, active: user.active ?? 1 },
+      user: { 
+        id: user.id, 
+        name: user.name, 
+        email: user.email, 
+        role, 
+        active: user.active ?? 1,
+        companyId: user.company_id || user.id,
+        companyProfileId: user.company_profile_id,
+        isCompanyOwner
+      },
       token
     };
   }
 
   static async getProfile(userId) {
-    const user = await queryOne('SELECT id, name, email, role, active, created_at FROM users WHERE id = ?', [userId]);
+    const user = await queryOne('SELECT id, name, email, role, active, company_id, company_profile_id, created_at FROM users WHERE id = ?', [userId]);
     if (!user) {
       throw new Error('Usuário não encontrado');
     }
@@ -251,6 +261,17 @@ export class AuthService {
       err.code = 'ACCOUNT_DEACTIVATED';
       throw err;
     }
-    return user;
+    const isCompanyOwner = !user.company_id || user.company_id === user.id;
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      active: user.active ?? 1,
+      companyId: user.company_id || user.id,
+      companyProfileId: user.company_profile_id,
+      isCompanyOwner,
+      created_at: user.created_at
+    };
   }
 }

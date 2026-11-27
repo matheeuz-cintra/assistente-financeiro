@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Wallet, CreditCard, Calendar, Target, Tags, KeyRound, 
   LogOut, Plus, ChevronRight, Check, X, Trash2, Edit2, ShieldCheck, Download, FileSpreadsheet, UploadCloud, Smartphone, Clock,
-  Users, UserX, UserCheck, Search, RefreshCw, Shield, AlertTriangle, Building2, Lock, Eye, EyeOff, CheckSquare, Square
+  Users, UserX, UserCheck, UserPlus, Search, RefreshCw, Shield, AlertTriangle, Building2, Lock, Eye, EyeOff, CheckSquare, Square
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useProfile } from '../context/ProfileContext.jsx';
@@ -18,6 +18,10 @@ export function MoreView({ onDataChanged, onOpenImport, onOpenInstall, onOpenSch
       setSection(initialSection);
       if (initialSection === 'admin_users') {
         loadAdminUsers();
+      }
+      if (initialSection === 'company_profiles') {
+        loadCompanyMembers();
+        refreshProfiles();
       }
     }
   }, [initialSection]);
@@ -37,7 +41,123 @@ export function MoreView({ onDataChanged, onOpenImport, onOpenInstall, onOpenSch
   const [adminFilter, setAdminFilter] = useState('all'); // 'all', 'active', 'inactive'
   const [actionUserId, setActionUserId] = useState(null);
 
-  // Modal / Creation state
+  // Company Members & Profiles state
+  const [companySubTab, setCompanySubTab] = useState('members'); // 'members' or 'profiles'
+  const [companyMembers, setCompanyMembers] = useState([]);
+  const [companyMembersLoading, setCompanyMembersLoading] = useState(false);
+  const [memberSearch, setMemberSearch] = useState('');
+  const [editingMember, setEditingMember] = useState(null);
+  const [memberSaving, setMemberSaving] = useState(false);
+  const [memberError, setMemberError] = useState('');
+  const [actionMemberId, setActionMemberId] = useState(null);
+
+  const loadCompanyMembers = async () => {
+    setCompanyMembersLoading(true);
+    try {
+      const list = await apiClient.getCompanyMembers();
+      setCompanyMembers(list || []);
+    } catch (err) {
+      console.error('Error loading company members:', err);
+    } finally {
+      setCompanyMembersLoading(false);
+    }
+  };
+
+  const handleOpenNewMember = () => {
+    setMemberError('');
+    const defaultProfile = profiles.find((p) => p.role_type === 'operator') || profiles[1] || profiles[0];
+    setEditingMember({
+      isNew: true,
+      name: '',
+      email: '',
+      password: '',
+      companyProfileId: defaultProfile?.id || ''
+    });
+  };
+
+  const handleOpenEditMember = (m) => {
+    setMemberError('');
+    setEditingMember({
+      isNew: false,
+      id: m.id,
+      name: m.name,
+      email: m.email,
+      password: '',
+      companyProfileId: m.companyProfileId || (profiles[0]?.id || ''),
+      active: m.active
+    });
+  };
+
+  const handleSaveMember = async (e) => {
+    e.preventDefault();
+    setMemberError('');
+    if (!editingMember.name || !editingMember.name.trim()) {
+      setMemberError('O nome do funcionário é obrigatório.');
+      return;
+    }
+    if (!editingMember.email || !editingMember.email.trim()) {
+      setMemberError('O e-mail de acesso é obrigatório.');
+      return;
+    }
+    if (editingMember.isNew && (!editingMember.password || editingMember.password.length < 6)) {
+      setMemberError('A senha inicial deve ter no mínimo 6 caracteres.');
+      return;
+    }
+
+    setMemberSaving(true);
+    try {
+      if (editingMember.isNew) {
+        await apiClient.createCompanyMember({
+          name: editingMember.name,
+          email: editingMember.email,
+          password: editingMember.password,
+          companyProfileId: editingMember.companyProfileId
+        });
+      } else {
+        await apiClient.updateCompanyMember(editingMember.id, {
+          name: editingMember.name,
+          email: editingMember.email,
+          password: editingMember.password || undefined,
+          companyProfileId: editingMember.companyProfileId,
+          active: editingMember.active
+        });
+      }
+      setEditingMember(null);
+      await loadCompanyMembers();
+    } catch (err) {
+      setMemberError(err.message || 'Erro ao salvar funcionário.');
+    } finally {
+      setMemberSaving(false);
+    }
+  };
+
+  const handleToggleMemberActive = async (m) => {
+    setActionMemberId(m.id);
+    try {
+      await apiClient.toggleCompanyMemberActive(m.id);
+      await loadCompanyMembers();
+    } catch (err) {
+      alert(err.message || 'Erro ao alterar status.');
+    } finally {
+      setActionMemberId(null);
+    }
+  };
+
+  const handleDeleteMember = async (m) => {
+    if (!confirm(`Excluir o funcionário "${m.name}" (${m.email})?\n\nO acesso deste colaborador à empresa será cancelado permanentemente.`)) {
+      return;
+    }
+    setActionMemberId(m.id);
+    try {
+      await apiClient.deleteCompanyMember(m.id);
+      await loadCompanyMembers();
+    } catch (err) {
+      alert(err.message || 'Erro ao excluir funcionário.');
+    } finally {
+      setActionMemberId(null);
+    }
+  };
+
   // Company Profile management state
   const [editingProfile, setEditingProfile] = useState(null);
   const [profileSaving, setProfileSaving] = useState(false);
@@ -617,15 +737,22 @@ export function MoreView({ onDataChanged, onOpenImport, onOpenInstall, onOpenSch
       { key: 'can_manage_profiles', label: 'Gerenciar Perfis e Permissões', desc: 'Permite criar acessos e alterar regras dos colaboradores', icon: '🛡️' }
     ];
 
+    const filteredMembers = companyMembers.filter((m) => {
+      if (!memberSearch) return true;
+      const q = memberSearch.toLowerCase();
+      return (m.name || '').toLowerCase().includes(q) || (m.email || '').toLowerCase().includes(q) || (m.profileName || '').toLowerCase().includes(q);
+    });
+
     return (
       <div className="flex-1 pb-24 px-4 lg:px-0 pt-3 space-y-4 lg:space-y-6 animate-in fade-in duration-200">
         {/* Top Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
             <button
               onClick={() => {
                 setSection('menu');
                 setEditingProfile(null);
+                setEditingMember(null);
               }}
               className="p-2 rounded-2xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors shadow-2xs"
             >
@@ -633,351 +760,703 @@ export function MoreView({ onDataChanged, onOpenImport, onOpenInstall, onOpenSch
             </button>
             <div>
               <div className="flex items-center gap-1.5">
-                <h2 className="text-base font-extrabold text-slate-800">Perfis & Acessos da Empresa</h2>
+                <h2 className="text-base font-extrabold text-slate-800">Equipe & Acessos da Empresa</h2>
                 <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-600 text-white">
-                  Controle Corporativo
+                  Corporativo
                 </span>
               </div>
-              <p className="text-xs text-slate-400">Parametrize exatamente o que cada pessoa da sua equipe pode ver e fazer</p>
+              <p className="text-xs text-slate-400">Logins individuais para cada funcionário com contas compartilhadas</p>
             </div>
           </div>
 
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+            {companySubTab === 'members' ? (
+              <button
+                type="button"
+                onClick={handleOpenNewMember}
+                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer"
+              >
+                <UserPlus size={15} />
+                <span>Novo Funcionário</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleOpenNewProfile}
+                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer"
+              >
+                <Plus size={15} />
+                <span>Novo Perfil</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Sub-tab Navigation */}
+        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-2xl max-w-md border border-slate-200/80">
           <button
             type="button"
-            onClick={handleOpenNewProfile}
-            className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-600/20 active:scale-95 transition-all"
+            onClick={() => setCompanySubTab('members')}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              companySubTab === 'members'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
           >
-            <Plus size={15} />
-            <span>Novo Perfil</span>
+            <Users size={15} className={companySubTab === 'members' ? 'text-emerald-600' : ''} />
+            <span>Funcionários ({companyMembers.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setCompanySubTab('profiles')}
+            className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+              companySubTab === 'profiles'
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Building2 size={15} className={companySubTab === 'profiles' ? 'text-emerald-600' : ''} />
+            <span>Perfis & Regras ({profiles.length})</span>
           </button>
         </div>
 
-        {/* PIN Modal when switching */}
-        {pinPromptProfile && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-            <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl space-y-4">
-              <div className="text-center space-y-1">
-                <div className="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-600 flex items-center justify-center mx-auto mb-2 text-xl">
-                  {pinPromptProfile.icon || '🔒'}
-                </div>
-                <h3 className="text-sm font-bold text-slate-800">PIN Requerido</h3>
-                <p className="text-xs text-slate-400">Digite o PIN de 4 dígitos para acessar como <strong>{pinPromptProfile.name}</strong></p>
+        {/* ============================================================== */}
+        {/* SUB-TAB 1: FUNCIONÁRIOS DA EMPRESA (LOGINS INDIVIDUAIS)        */}
+        {/* ============================================================== */}
+        {companySubTab === 'members' && (
+          <div className="space-y-4">
+            {/* Informational Banner */}
+            <div className="p-4 rounded-3xl bg-gradient-to-r from-emerald-950 via-slate-900 to-teal-950 text-white border border-emerald-500/30 shadow-md space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">👥</span>
+                <span className="text-xs font-bold text-emerald-300">Acessos Individuais & Contas Compartilhadas</span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Cada funcionário entra no sistema com seu <strong>próprio e-mail e senha</strong>. Todos visualizam e operam as mesmas contas bancárias da empresa, mas o sistema bloqueia automaticamente saldos, relatórios ou agendamentos de acordo com o perfil atribuído a cada um.
+              </p>
+            </div>
+
+            {/* Search and stats */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="relative flex-1 max-w-md">
+                <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={memberSearch}
+                  onChange={(e) => setMemberSearch(e.target.value)}
+                  placeholder="Buscar funcionário por nome, e-mail ou cargo..."
+                  className="w-full pl-9 pr-8 py-2.5 rounded-2xl bg-white border border-slate-200 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-2xs"
+                />
+                {memberSearch && (
+                  <button
+                    onClick={() => setMemberSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </div>
 
-              {pinError && (
-                <div className="p-2.5 rounded-xl bg-rose-50 text-rose-700 text-xs font-semibold text-center border border-rose-200">
-                  {pinError}
-                </div>
-              )}
-
-              <form onSubmit={handleConfirmPinSwitch} className="space-y-4">
-                <div className="flex justify-center my-2">
-                  <input
-                    type="password"
-                    maxLength={4}
-                    value={pinInput}
-                    onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
-                    placeholder="••••"
-                    className="w-32 text-center text-2xl tracking-[0.5em] py-2 rounded-2xl border-2 border-slate-200 font-mono font-bold focus:border-purple-600 focus:outline-none"
-                    autoFocus
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPinPromptProfile(null)}
-                    className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-md shadow-purple-600/20"
-                  >
-                    Confirmar
-                  </button>
-                </div>
-              </form>
+              <button
+                type="button"
+                onClick={loadCompanyMembers}
+                disabled={companyMembersLoading}
+                className="px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 shadow-2xs flex items-center gap-1.5 self-end sm:self-auto transition-all disabled:opacity-50"
+              >
+                <RefreshCw size={13} className={companyMembersLoading ? 'animate-spin text-emerald-600' : ''} />
+                <span>Atualizar</span>
+              </button>
             </div>
+
+            {/* Modal for Creating / Editing Member */}
+            {editingMember && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+                <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold text-lg">
+                        👤
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-800">
+                          {editingMember.isNew ? 'Novo Acesso de Funcionário' : `Editar: ${editingMember.name}`}
+                        </h3>
+                        <span className="text-[11px] text-slate-400">
+                          Login exclusivo com contas compartilhadas da empresa
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditingMember(null)}
+                      className="p-1 rounded-full text-slate-400 hover:text-slate-600"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  {memberError && (
+                    <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold text-center">
+                      {memberError}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleSaveMember} className="space-y-3.5 text-xs">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-700 block">Nome do Funcionário</label>
+                      <input
+                        type="text"
+                        value={editingMember.name}
+                        onChange={(e) => setEditingMember({ ...editingMember, name: e.target.value })}
+                        placeholder="Ex: Carlos Silva ou Caixa 01"
+                        className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                        required
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-700 block">E-mail de Login Exclusivo</label>
+                      <input
+                        type="email"
+                        value={editingMember.email}
+                        onChange={(e) => setEditingMember({ ...editingMember, email: e.target.value })}
+                        placeholder="Ex: carlos@empresa.com ou caixa1@empresa.com"
+                        className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                        required
+                      />
+                      <span className="text-[10px] text-slate-400 block">
+                        O funcionário usará este e-mail para acessar o sistema.
+                      </span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-700 block">
+                        {editingMember.isNew ? 'Senha de Acesso Inicial' : 'Redefinir Senha (deixe em branco para não alterar)'}
+                      </label>
+                      <input
+                        type="password"
+                        value={editingMember.password}
+                        onChange={(e) => setEditingMember({ ...editingMember, password: e.target.value })}
+                        placeholder={editingMember.isNew ? 'Mínimo de 6 caracteres' : 'Nova senha (opcional)'}
+                        className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                        required={editingMember.isNew}
+                        minLength={6}
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-700 block">Perfil de Acesso & Permissões</label>
+                      <select
+                        value={editingMember.companyProfileId}
+                        onChange={(e) => setEditingMember({ ...editingMember, companyProfileId: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                        required
+                      >
+                        {profiles.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.icon || '👤'} {p.name} {p.can_view_balances ? '— (Visualiza Saldos)' : '— (Saldos Ocultos 🔒)'}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-[10px] text-slate-400 block">
+                        Define exatamente o que este usuário tem autorização para ver e fazer.
+                      </span>
+                    </div>
+
+                    <div className="p-3 rounded-2xl bg-emerald-50/60 border border-emerald-100 text-[11px] text-emerald-900 leading-relaxed">
+                      💡 <strong>Contas da Empresa:</strong> Ao entrar com este login, o funcionário verá automaticamente os extratos e contas bancárias da empresa, respeitando o perfil escolhido acima.
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditingMember(null)}
+                        className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={memberSaving}
+                        className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold shadow-md shadow-emerald-600/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        <Check size={16} />
+                        <span>{memberSaving ? 'Salvando...' : (editingMember.isNew ? 'Criar Acesso' : 'Salvar Alterações')}</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Members List */}
+            {companyMembersLoading ? (
+              <div className="py-12 text-center text-slate-400 text-xs flex flex-col items-center gap-2 bg-white rounded-3xl border border-slate-100 p-8">
+                <RefreshCw size={24} className="animate-spin text-emerald-600" />
+                <span>Carregando funcionários da empresa...</span>
+              </div>
+            ) : filteredMembers.length === 0 ? (
+              <div className="py-12 text-center text-slate-400 text-xs bg-white rounded-3xl p-8 border border-slate-100 space-y-3">
+                <span className="text-3xl block">👥</span>
+                <span className="font-bold text-slate-700 block text-sm">Nenhum funcionário encontrado</span>
+                <p className="max-w-md mx-auto text-slate-500 text-xs">
+                  Cadastre o primeiro colaborador da sua empresa clicando no botão <strong>"+ Novo Funcionário"</strong> acima.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleOpenNewMember}
+                  className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-md shadow-emerald-600/20 active:scale-95"
+                >
+                  <UserPlus size={14} />
+                  <span>Cadastrar Funcionário Agora</span>
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredMembers.map((m) => {
+                  const isActive = m.active === 1;
+                  const isOwner = m.isOwner;
+
+                  return (
+                    <div
+                      key={m.id}
+                      className={`bg-white rounded-3xl p-5 border shadow-xs flex flex-col justify-between space-y-4 transition-all ${
+                        !isActive ? 'bg-rose-50/30 border-rose-200' : 'border-slate-100 hover:border-slate-300'
+                      }`}
+                    >
+                      {/* Member Info */}
+                      <div>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div
+                              className="w-11 h-11 rounded-2xl flex items-center justify-center text-xl shadow-inner shrink-0"
+                              style={{ backgroundColor: `${m.profileColor || '#8b5cf6'}20` }}
+                            >
+                              {m.profileIcon || (isOwner ? '👑' : '👤')}
+                            </div>
+                            <div className="min-w-0">
+                              <h3 className="font-bold text-xs text-slate-800 truncate block">{m.name}</h3>
+                              <span className="text-[11px] text-slate-400 truncate block mt-0.5">{m.email}</span>
+                            </div>
+                          </div>
+
+                          <div className="shrink-0 text-right">
+                            {isActive ? (
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-emerald-100 text-emerald-800 border border-emerald-200/80 inline-flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Ativo
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-rose-100 text-rose-800 border border-rose-200/80 inline-flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" /> Bloqueado
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Profile Role Badge */}
+                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                          <span className="text-slate-400 font-medium">Perfil Vinculado:</span>
+                          <span 
+                            className="font-bold px-2 py-0.5 rounded-lg flex items-center gap-1 text-[11px]"
+                            style={{ 
+                              backgroundColor: `${m.profileColor || '#8b5cf6'}18`,
+                              color: m.profileColor || '#6d28d9'
+                            }}
+                          >
+                            <span>{m.profileIcon}</span>
+                            <span>{m.profileName}</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                        {isOwner ? (
+                          <span className="text-[11px] font-semibold text-purple-600 italic">
+                            Proprietário da Empresa
+                          </span>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditMember(m)}
+                              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1 transition-colors"
+                              title="Editar dados e perfil do funcionário"
+                            >
+                              <Edit2 size={13} />
+                              <span>Editar</span>
+                            </button>
+
+                            <div className="flex items-center gap-1.5 ml-auto">
+                              <button
+                                type="button"
+                                disabled={actionMemberId === m.id}
+                                onClick={() => handleToggleMemberActive(m)}
+                                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1 ${
+                                  isActive
+                                    ? 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
+                                    : 'bg-emerald-600 text-white hover:bg-emerald-500 shadow-xs'
+                                }`}
+                                title={isActive ? 'Bloquear acesso do funcionário' : 'Liberar acesso do funcionário'}
+                              >
+                                {isActive ? <UserX size={13} /> : <UserCheck size={13} />}
+                                <span>{isActive ? 'Bloquear' : 'Reativar'}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                disabled={actionMemberId === m.id}
+                                onClick={() => handleDeleteMember(m)}
+                                className="p-1.5 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition-colors"
+                                title="Excluir funcionário da empresa"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Profile Editor Modal / Slide */}
-        {editingProfile && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-            <div className="w-full max-w-xl bg-white rounded-3xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">{editingProfile.icon || '👤'}</span>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-800">
-                      {editingProfile.isNew ? 'Criar Novo Perfil de Acesso' : `Parametrizar: ${editingProfile.name}`}
-                    </h3>
-                    <span className="text-[11px] text-slate-400">Configure as permissões deste colaborador</span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setEditingProfile(null)}
-                  className="p-1 rounded-full text-slate-400 hover:text-slate-600"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              {profileError && (
-                <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold text-center">
-                  {profileError}
-                </div>
-              )}
-
-              <form onSubmit={handleSaveProfile} className="space-y-4 text-xs">
-                {/* Name & Icon Row */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="sm:col-span-2 space-y-1">
-                    <label className="text-[11px] font-bold text-slate-700 block">Nome do Perfil / Cargo</label>
-                    <input
-                      type="text"
-                      value={editingProfile.name}
-                      onChange={(e) => setEditingProfile({ ...editingProfile, name: e.target.value })}
-                      placeholder="Ex: Operador de Caixa, Diretoria, etc."
-                      className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
-                      required
-                    />
+        {/* ============================================================== */}
+        {/* SUB-TAB 2: PARAMETRIZAÇÃO DE PERFIS & PERMISSÕES                */}
+        {/* ============================================================== */}
+        {companySubTab === 'profiles' && (
+          <div className="space-y-4">
+            {/* PIN Modal when switching */}
+            {pinPromptProfile && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+                <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl space-y-4">
+                  <div className="text-center space-y-1">
+                    <div className="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-600 flex items-center justify-center mx-auto mb-2 text-xl">
+                      {pinPromptProfile.icon || '🔒'}
+                    </div>
+                    <h3 className="text-sm font-bold text-slate-800">PIN Requerido</h3>
+                    <p className="text-xs text-slate-400">Digite o PIN de 4 dígitos para acessar como <strong>{pinPromptProfile.name}</strong></p>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-700 block">PIN de Segurança (Opcional)</label>
-                    <input
-                      type="password"
-                      maxLength={4}
-                      value={editingProfile.pin || ''}
-                      onChange={(e) => setEditingProfile({ ...editingProfile, pin: e.target.value.replace(/\D/g, '') })}
-                      placeholder="4 dígitos"
-                      className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-center"
-                    />
-                    <span className="text-[9px] text-slate-400 block">Vazio = sem senha</span>
-                  </div>
-                </div>
+                  {pinError && (
+                    <div className="p-2.5 rounded-xl bg-rose-50 text-rose-700 text-xs font-semibold text-center border border-rose-200">
+                      {pinError}
+                    </div>
+                  )}
 
-                {/* Emoji Icons preset */}
-                <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-slate-700 block">Ícone Representativo</label>
-                  <div className="flex items-center gap-2 overflow-x-auto py-1">
-                    {['👑', '💼', '💵', '🛒', '🔍', '👤', '📊', '🛠️', '🎯', '🏢'].map((emoji) => (
+                  <form onSubmit={handleConfirmPinSwitch} className="space-y-4">
+                    <div className="flex justify-center my-2">
+                      <input
+                        type="password"
+                        maxLength={4}
+                        value={pinInput}
+                        onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
+                        placeholder="••••"
+                        className="w-32 text-center text-2xl tracking-[0.5em] py-2 rounded-2xl border-2 border-slate-200 font-mono font-bold focus:border-purple-600 focus:outline-none"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="flex gap-2">
                       <button
-                        key={emoji}
                         type="button"
-                        onClick={() => setEditingProfile({ ...editingProfile, icon: emoji })}
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg transition-all ${
-                          editingProfile.icon === emoji ? 'bg-emerald-500 text-white shadow-md scale-105' : 'bg-slate-100 hover:bg-slate-200'
-                        }`}
+                        onClick={() => setPinPromptProfile(null)}
+                        className="flex-1 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold"
                       >
-                        {emoji}
+                        Cancelar
                       </button>
-                    ))}
-                  </div>
+                      <button
+                        type="submit"
+                        className="flex-1 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-md shadow-purple-600/20"
+                      >
+                        Confirmar
+                      </button>
+                    </div>
+                  </form>
                 </div>
+              </div>
+            )}
 
-                {/* 11 Granular Parametrization Checkbox Switches */}
-                <div className="space-y-2 pt-2">
-                  <label className="text-xs font-black text-slate-800 uppercase tracking-wider block">
-                    Parametrização de Permissões
-                  </label>
-                  <p className="text-[11px] text-slate-500 mb-2">Marque o que este perfil tem autorização para visualizar e executar na empresa:</p>
+            {/* Profile Editor Modal / Slide */}
+            {editingProfile && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+                <div className="w-full max-w-xl bg-white rounded-3xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{editingProfile.icon || '👤'}</span>
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-800">
+                          {editingProfile.isNew ? 'Criar Novo Perfil de Acesso' : `Parametrizar: ${editingProfile.name}`}
+                        </h3>
+                        <span className="text-[11px] text-slate-400">Configure as permissões deste perfil</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditingProfile(null)}
+                      className="p-1 rounded-full text-slate-400 hover:text-slate-600"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
 
-                  <div className="space-y-2 max-h-[38vh] overflow-y-auto pr-1">
-                    {PERMISSION_CONFIGS.map((perm) => {
-                      const isChecked = Boolean(editingProfile[perm.key]);
-                      const isAdminCore = editingProfile.role_type === 'admin' && (perm.key === 'can_manage_profiles' || perm.key === 'can_view_balances');
+                  {profileError && (
+                    <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold text-center">
+                      {profileError}
+                    </div>
+                  )}
 
-                      return (
-                        <div
-                          key={perm.key}
-                          onClick={() => {
-                            if (isAdminCore) return;
-                            setEditingProfile({
-                              ...editingProfile,
-                              [perm.key]: !isChecked
-                            });
-                          }}
-                          className={`p-3 rounded-2xl border flex items-start gap-3 transition-all cursor-pointer ${
-                            isChecked ? 'bg-emerald-50/50 border-emerald-300' : 'bg-slate-50/80 border-slate-200 opacity-70'
-                          }`}
-                        >
-                          <div className="pt-0.5 text-base shrink-0">
-                            {isChecked ? (
-                              <CheckSquare size={18} className="text-emerald-600" />
-                            ) : (
-                              <Square size={18} className="text-slate-400" />
-                            )}
+                  <form onSubmit={handleSaveProfile} className="space-y-4 text-xs">
+                    {/* Name & Icon Row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="sm:col-span-2 space-y-1">
+                        <label className="text-[11px] font-bold text-slate-700 block">Nome do Perfil / Cargo</label>
+                        <input
+                          type="text"
+                          value={editingProfile.name}
+                          onChange={(e) => setEditingProfile({ ...editingProfile, name: e.target.value })}
+                          placeholder="Ex: Operador de Caixa, Diretoria, etc."
+                          className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-700 block">PIN de Segurança (Opcional)</label>
+                        <input
+                          type="password"
+                          maxLength={4}
+                          value={editingProfile.pin || ''}
+                          onChange={(e) => setEditingProfile({ ...editingProfile, pin: e.target.value.replace(/\D/g, '') })}
+                          placeholder="4 dígitos"
+                          className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-center"
+                        />
+                        <span className="text-[9px] text-slate-400 block">Vazio = sem senha</span>
+                      </div>
+                    </div>
+
+                    {/* Emoji Icons preset */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-700 block">Ícone Representativo</label>
+                      <div className="flex items-center gap-2 overflow-x-auto py-1">
+                        {['👑', '💼', '💵', '🛒', '🔍', '👤', '📊', '🛠️', '🎯', '🏢'].map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => setEditingProfile({ ...editingProfile, icon: emoji })}
+                            className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg transition-all ${
+                              editingProfile.icon === emoji ? 'bg-emerald-500 text-white shadow-md scale-105' : 'bg-slate-100 hover:bg-slate-200'
+                            }`}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 11 Granular Parametrization Checkbox Switches */}
+                    <div className="space-y-2 pt-2">
+                      <label className="text-xs font-black text-slate-800 uppercase tracking-wider block">
+                        Parametrização de Permissões
+                      </label>
+                      <p className="text-[11px] text-slate-500 mb-2">Marque o que este perfil tem autorização para visualizar e executar na empresa:</p>
+
+                      <div className="space-y-2 max-h-[38vh] overflow-y-auto pr-1">
+                        {PERMISSION_CONFIGS.map((perm) => {
+                          const isChecked = Boolean(editingProfile[perm.key]);
+                          const isAdminCore = editingProfile.role_type === 'admin' && (perm.key === 'can_manage_profiles' || perm.key === 'can_view_balances');
+
+                          return (
+                            <div
+                              key={perm.key}
+                              onClick={() => {
+                                if (isAdminCore) return;
+                                setEditingProfile({
+                                  ...editingProfile,
+                                  [perm.key]: !isChecked
+                                });
+                              }}
+                              className={`p-3 rounded-2xl border flex items-start gap-3 transition-all cursor-pointer ${
+                                isChecked ? 'bg-emerald-50/50 border-emerald-300' : 'bg-slate-50/80 border-slate-200 opacity-70'
+                              }`}
+                            >
+                              <div className="pt-0.5 text-base shrink-0">
+                                {isChecked ? (
+                                  <CheckSquare size={18} className="text-emerald-600" />
+                                ) : (
+                                  <Square size={18} className="text-slate-400" />
+                                )}
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span>{perm.icon}</span>
+                                  <span className="font-bold text-slate-800">{perm.label}</span>
+                                  {isAdminCore && (
+                                    <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-slate-200 text-slate-600">
+                                      Obrigatório no Admin
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[10px] text-slate-500 block leading-tight mt-0.5">{perm.desc}</span>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditingProfile(null)}
+                        className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={profileSaving}
+                        className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold shadow-md shadow-emerald-600/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        <Check size={16} />
+                        <span>{profileSaving ? 'Salvando...' : 'Salvar Parametrizações'}</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* Profiles Grid / List */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {profiles.map((p) => {
+                const isCurrentlyActive = p.id === activeProfile?.id;
+                return (
+                  <div
+                    key={p.id}
+                    className={`bg-white rounded-3xl p-5 border shadow-xs flex flex-col justify-between space-y-4 transition-all ${
+                      isCurrentlyActive ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-slate-100 hover:border-slate-300'
+                    }`}
+                  >
+                    {/* Profile Header */}
+                    <div>
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-inner shrink-0"
+                            style={{ backgroundColor: `${p.color || '#10b981'}20` }}
+                          >
+                            {p.icon || '👤'}
                           </div>
-                          <div className="flex-1">
+                          <div>
                             <div className="flex items-center gap-1.5">
-                              <span>{perm.icon}</span>
-                              <span className="font-bold text-slate-800">{perm.label}</span>
-                              {isAdminCore && (
-                                <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-slate-200 text-slate-600">
-                                  Obrigatório no Admin
+                              <h3 className="font-extrabold text-sm text-slate-800">{p.name}</h3>
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              {isCurrentlyActive ? (
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-600 text-white flex items-center gap-1 shadow-2xs">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> Em Uso
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.2 rounded-md text-[9px] font-bold uppercase bg-slate-100 text-slate-600">
+                                  {p.role_type}
+                                </span>
+                              )}
+                              {p.has_pin && (
+                                <span className="px-1.5 py-0.2 rounded-md text-[9px] font-bold bg-purple-50 text-purple-700 flex items-center gap-1 border border-purple-200">
+                                  <Lock size={10} /> PIN Ativo
                                 </span>
                               )}
                             </div>
-                            <span className="text-[10px] text-slate-500 block leading-tight mt-0.5">{perm.desc}</span>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                      </div>
 
-                {/* Action buttons */}
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditingProfile(null)}
-                    className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={profileSaving}
-                    className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold shadow-md shadow-emerald-600/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
-                  >
-                    <Check size={16} />
-                    <span>{profileSaving ? 'Salvando...' : 'Salvar Parametrizações'}</span>
-                  </button>
-                </div>
-              </form>
+                      {/* Summary of Permissions Badges */}
+                      <div className="mt-4 pt-3 border-t border-slate-100 space-y-1.5 text-[11px]">
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>👁️ Saldos das Contas:</span>
+                          <span className={`font-bold ${p.can_view_balances ? 'text-emerald-600' : 'text-slate-400'}`}>
+                            {p.can_view_balances ? 'Liberado' : 'Oculto 🔒'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>📊 Relatórios & Lucro:</span>
+                          <span className={`font-bold ${p.can_view_reports ? 'text-blue-600' : 'text-slate-400'}`}>
+                            {p.can_view_reports ? 'Liberado' : 'Bloqueado'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>➕ Lançar Despesas/Rec:</span>
+                          <span className={`font-bold ${p.can_add_transactions ? 'text-emerald-600' : 'text-slate-400'}`}>
+                            {p.can_add_transactions ? 'Liberado' : 'Bloqueado'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>📅 Contas a Pagar:</span>
+                          <span className={`font-bold ${p.can_view_scheduled_payments ? 'text-amber-600' : 'text-slate-400'}`}>
+                            {p.can_view_scheduled_payments ? 'Liberado' : 'Bloqueado'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>📥 Extratos OFX/CSV:</span>
+                          <span className={`font-bold ${p.can_import_statements ? 'text-teal-600' : 'text-slate-400'}`}>
+                            {p.can_import_statements ? 'Liberado' : 'Bloqueado'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Profile Actions */}
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                      {!isCurrentlyActive && (
+                        <button
+                          type="button"
+                          onClick={() => handleSwitchToProfile(p)}
+                          className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1 active:scale-95 transition-all shadow-xs"
+                          title="Assumir este perfil agora"
+                        >
+                          <UserCheck size={14} />
+                          <span>Assumir</span>
+                        </button>
+                      )}
+
+                      <div className="flex items-center gap-1.5 ml-auto">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditProfile(p)}
+                          className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1 transition-colors"
+                          title="Editar regras e permissões deste perfil"
+                        >
+                          <Edit2 size={13} />
+                          <span>Parametrizar</span>
+                        </button>
+
+                        {!p.is_default && p.role_type !== 'admin' && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteProfile(p)}
+                            className="p-1.5 rounded-xl text-rose-500 hover:bg-rose-50 transition-colors"
+                            title="Excluir este perfil"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
-
-        {/* Profiles Grid / List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {profiles.map((p) => {
-            const isCurrentlyActive = p.id === activeProfile?.id;
-            return (
-              <div
-                key={p.id}
-                className={`bg-white rounded-3xl p-5 border shadow-xs flex flex-col justify-between space-y-4 transition-all ${
-                  isCurrentlyActive ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-slate-100 hover:border-slate-300'
-                }`}
-              >
-                {/* Profile Header */}
-                <div>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shadow-inner shrink-0"
-                        style={{ backgroundColor: `${p.color || '#10b981'}20` }}
-                      >
-                        {p.icon || '👤'}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <h3 className="font-extrabold text-sm text-slate-800">{p.name}</h3>
-                        </div>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          {isCurrentlyActive ? (
-                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-600 text-white flex items-center gap-1 shadow-2xs">
-                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" /> Em Uso
-                            </span>
-                          ) : (
-                            <span className="px-1.5 py-0.2 rounded-md text-[9px] font-bold uppercase bg-slate-100 text-slate-600">
-                              {p.role_type}
-                            </span>
-                          )}
-                          {p.has_pin && (
-                            <span className="px-1.5 py-0.2 rounded-md text-[9px] font-bold bg-purple-50 text-purple-700 flex items-center gap-1 border border-purple-200">
-                              <Lock size={10} /> PIN Ativo
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Summary of Permissions Badges */}
-                  <div className="mt-4 pt-3 border-t border-slate-100 space-y-1.5 text-[11px]">
-                    <div className="flex items-center justify-between text-slate-600">
-                      <span>👁️ Saldos das Contas:</span>
-                      <span className={`font-bold ${p.can_view_balances ? 'text-emerald-600' : 'text-slate-400'}`}>
-                        {p.can_view_balances ? 'Liberado' : 'Oculto 🔒'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-slate-600">
-                      <span>📊 Relatórios & Lucro:</span>
-                      <span className={`font-bold ${p.can_view_reports ? 'text-blue-600' : 'text-slate-400'}`}>
-                        {p.can_view_reports ? 'Liberado' : 'Bloqueado'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-slate-600">
-                      <span>➕ Lançar Despesas/Rec:</span>
-                      <span className={`font-bold ${p.can_add_transactions ? 'text-emerald-600' : 'text-slate-400'}`}>
-                        {p.can_add_transactions ? 'Liberado' : 'Bloqueado'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-slate-600">
-                      <span>📅 Contas a Pagar:</span>
-                      <span className={`font-bold ${p.can_view_scheduled_payments ? 'text-amber-600' : 'text-slate-400'}`}>
-                        {p.can_view_scheduled_payments ? 'Liberado' : 'Bloqueado'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-slate-600">
-                      <span>📥 Extratos OFX/CSV:</span>
-                      <span className={`font-bold ${p.can_import_statements ? 'text-teal-600' : 'text-slate-400'}`}>
-                        {p.can_import_statements ? 'Liberado' : 'Bloqueado'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Profile Actions */}
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                  {!isCurrentlyActive && (
-                    <button
-                      type="button"
-                      onClick={() => handleSwitchToProfile(p)}
-                      className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1 active:scale-95 transition-all shadow-xs"
-                      title="Assumir este perfil agora"
-                    >
-                      <UserCheck size={14} />
-                      <span>Assumir</span>
-                    </button>
-                  )}
-
-                  <div className="flex items-center gap-1.5 ml-auto">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEditProfile(p)}
-                      className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1 transition-colors"
-                      title="Editar regras e permissões deste perfil"
-                    >
-                      <Edit2 size={13} />
-                      <span>Parametrizar</span>
-                    </button>
-
-                    {!p.is_default && p.role_type !== 'admin' && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteProfile(p)}
-                        className="p-1.5 rounded-xl text-rose-500 hover:bg-rose-50 transition-colors"
-                        title="Excluir este perfil"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
       </div>
     );
   }

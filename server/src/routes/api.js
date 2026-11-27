@@ -15,6 +15,7 @@ import { ScheduledPaymentService } from '../services/scheduledPaymentService.js'
 import { NotificationService } from '../services/notificationService.js';
 import { AdminService } from '../services/adminService.js';
 import { ProfileService } from '../services/profileService.js';
+import { MemberService } from '../services/memberService.js';
 
 export const router = express.Router();
 
@@ -70,7 +71,7 @@ router.post('/auth/login', async (req, res) => {
 
 router.get('/auth/me', authMiddleware, async (req, res) => {
   try {
-    const profile = await AuthService.getProfile(req.user.id);
+    const profile = await AuthService.getProfile(req.user.operatorId || req.user.id);
     res.json(profile);
   } catch (err) {
     res.status(404).json({ error: err.message });
@@ -697,6 +698,54 @@ router.post('/company/profiles/:id/verify-pin', async (req, res) => {
   try {
     const { pin } = req.body;
     const result = await ProfileService.verifyProfilePin(req.user.id, req.params.id, pin);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// -------------------------------------------------------------
+// COMPANY MEMBERS (FUNCIONÁRIOS / COLABORADORES DA EMPRESA)
+// -------------------------------------------------------------
+router.get('/company/members', async (req, res) => {
+  try {
+    const members = await MemberService.listMembers(req.user.companyId);
+    res.json(members);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/company/members', async (req, res) => {
+  try {
+    const member = await MemberService.createMember(req.user.companyId, req.user.operatorId, req.body);
+    res.status(201).json(member);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.put('/company/members/:id', async (req, res) => {
+  try {
+    const result = await MemberService.updateMember(req.user.companyId, req.params.id, req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.patch('/company/members/:id/toggle-active', async (req, res) => {
+  try {
+    const result = await MemberService.toggleMemberActive(req.user.companyId, req.params.id);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+router.delete('/company/members/:id', async (req, res) => {
+  try {
+    const result = await MemberService.deleteMember(req.user.companyId, req.params.id);
     res.json(result);
   } catch (err) {
     res.status(400).json({ error: err.message });

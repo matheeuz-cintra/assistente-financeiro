@@ -5,7 +5,7 @@ import { useAuth } from './AuthContext.jsx';
 const ProfileContext = createContext(null);
 
 export function ProfileProvider({ children }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [profiles, setProfiles] = useState([]);
   const [activeProfileId, setActiveProfileId] = useState(() => {
     return typeof window !== 'undefined' ? localStorage.getItem('finai_active_profile_id') : null;
@@ -20,18 +20,24 @@ export function ProfileProvider({ children }) {
       const list = await apiClient.getCompanyProfiles();
       setProfiles(list);
 
-      // Verify if activeProfileId still exists
-      const savedId = localStorage.getItem('finai_active_profile_id');
-      const found = list.find((p) => p.id === savedId);
-
-      if (found) {
-        setActiveProfileId(found.id);
+      // If user is an employee tied to a specific company profile, lock to it
+      if (user?.companyProfileId) {
+        setActiveProfileId(user.companyProfileId);
+        localStorage.setItem('finai_active_profile_id', user.companyProfileId);
       } else {
-        // Fallback to default (admin)
-        const def = list.find((p) => p.is_default) || list[0];
-        if (def) {
-          setActiveProfileId(def.id);
-          localStorage.setItem('finai_active_profile_id', def.id);
+        // Owner or unassigned account: respect savedId or default
+        const savedId = localStorage.getItem('finai_active_profile_id');
+        const found = list.find((p) => p.id === savedId);
+
+        if (found) {
+          setActiveProfileId(found.id);
+        } else {
+          // Fallback to default (admin)
+          const def = list.find((p) => p.is_default) || list[0];
+          if (def) {
+            setActiveProfileId(def.id);
+            localStorage.setItem('finai_active_profile_id', def.id);
+          }
         }
       }
     } catch (err) {
@@ -93,6 +99,10 @@ export function ProfileProvider({ children }) {
   }, [activeProfile]);
 
   const switchProfile = async (profileId, pin = null) => {
+    if (user?.companyProfileId && !user?.isCompanyOwner && !permissions.canManageProfiles) {
+      throw new Error('Você está conectado como funcionário com perfil fixo. Apenas o administrador da empresa pode alterar perfis.');
+    }
+
     const target = profiles.find((p) => p.id === profileId);
     if (!target) {
       throw new Error('Perfil não encontrado.');
@@ -121,7 +131,13 @@ export function ProfileProvider({ children }) {
         switchProfile,
         refreshProfiles: loadProfiles,
         isSwitcherOpen,
-        openSwitcher: () => setIsSwitcherOpen(true),
+        openSwitcher: () => {
+          if (user?.companyProfileId && !user?.isCompanyOwner && !permissions.canManageProfiles) {
+            alert(`Você está conectado com o login do funcionário "${user.name}" e perfil fixo "${activeProfile?.name}". Somente o Administrador pode alterar o perfil.`);
+            return;
+          }
+          setIsSwitcherOpen(true);
+        },
         closeSwitcher: () => setIsSwitcherOpen(false)
       }}
     >

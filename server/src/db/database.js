@@ -60,6 +60,9 @@ export async function initDatabase() {
     try {
       await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user'");
       await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS active INTEGER NOT NULL DEFAULT 1");
+      await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS company_id TEXT");
+      await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS company_profile_id TEXT");
+      await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS created_by_user_id TEXT");
     } catch (e) {
       console.warn('Migration column warning:', e.message);
     }
@@ -73,6 +76,15 @@ export async function initDatabase() {
     } catch {}
     try {
       sqliteDb.exec("ALTER TABLE users ADD COLUMN active INTEGER NOT NULL DEFAULT 1");
+    } catch {}
+    try {
+      sqliteDb.exec("ALTER TABLE users ADD COLUMN company_id TEXT");
+    } catch {}
+    try {
+      sqliteDb.exec("ALTER TABLE users ADD COLUMN company_profile_id TEXT");
+    } catch {}
+    try {
+      sqliteDb.exec("ALTER TABLE users ADD COLUMN created_by_user_id TEXT");
     } catch {}
   }
 
